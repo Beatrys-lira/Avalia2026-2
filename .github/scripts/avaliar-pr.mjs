@@ -1,0 +1,260 @@
+#!/usr/bin/env node
+/**
+ * .github/scripts/avaliar-pr.mjs
+ * Pipeline Automatizado de Correção de Pull Requests para frankalcantara/Avalia2026-2
+ *
+ * Etapa 1: Lê os arquivos do PR, verifica isolamento na pasta <CHAVE>/, valida a chave no endpoint
+ *          de auditoria (identificando aluno, RA, turma e projeto) e ACEITA (merge) o Pull Request.
+ * Etapa 2: Inspeciona o código, consulta o modelo de IA (Worker Active Learning Groq + GitHub Models),
+ *          registra a nota (ou aprovação de teste sem nota para chaves T26-...) no banco D1 e publica
+ *          o relatório detalhado no Pull Request.
+ */
+
+import path from "node:path";
+import { inspecionarSubpasta } from "../../validar-local.mjs";
+
+const API_BASE = process.env.PROJETOS_API_BASE || "https://frankalcantara.com";
+const VALIDATION_TOKEN = process.env.PROJETOS_VALIDATION_TOKEN || "";
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
+const REPO = process.env.GITHUB_REPOSITORY || "frankalcantara/Avalia2026-2";
+const PR_NUMBER = Number(process.env.PR_NUMBER || 0);
+const PR_HTML_URL = process.env.PR_HTML_URL || `https://github.com/${REPO}/pull/${PR_NUMBER}`;
+const PR_HEAD_REPO_URL = process.env.PR_HEAD_REPO_URL || "";
+
+const KEY_REGEX = /^(P26|T26)-(2A|2B|2C|2D|3A|3B)-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/;
+
+async function githubApi(endpoint, options = {}) {
+  const url = endpoint.startsWith("http") ? endpoint : `https://api.github.com${endpoint}`;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function comentarNoPr(markdown) {
+  if (!GITHUB_TOKEN || !PR_NUMBER) {
+    console.log("\n--- COMENTÁRIO DO PR (MODO SIMULAÇÃO) ---\n" + markdown);
+    return;
+  }
+  await githubApi(`/repos/${REPO}/issues/${PR_NUMBER}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ body: markdown }),
+  });
+}
+
+async function adicionarLabelsNoPr(labels) {
+  if (!GITHUB_TOKEN || !PR_NUMBER || !labels.length) return;
+  await githubApi(`/repos/${REPO}/issues/${PR_NUMBER}/labels`, {
+    method: "POST",
+    body: JSON.stringify({ labels }),
+  });
+}
+
+async function listarArquivosDoPr() {
+  const files = [];
+  let page = 1;
+  while (page <= 10) {
+    const { ok, data } = await githubApi(`/repos/${REPO}/pulls/${PR_NUMBER}/files?per_page=100&page=${page}`);
+    if (!ok || !Array.isArray(data) || data.length === 0) break;
+    for (const item of data) {
+      files.push(item.filename);
+    }
+    if (data.length < 100) break;
+    page++;
+  }
+  return files;
+}
+
+async function consultarGitHubModelsFallback({ student, project, isTest, checks, dossier }) {
+  if (!GITHUB_TOKEN) return null;
+  try {
+    const res = await fetch("https://models.inference.ai.azure.com/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "Você é o avaliador assistente da disciplina do Prof. Frank de Alcantara. Retorne um JSON com { scores: { deploy (0-25), backend (0-25), frontend (0-15), agents (0-25), repo (0-10) }, summary, strengths: [], improvements: [] }.",
+          },
+          {
+            role: "user",
+            content: `Modalidade: ${isTest ? "Teste Sem Nota" : "Oficial"}\nAluno: ${student.nomeCompleto}\nProjeto #${project.id}: ${project.title}\nDescrição: ${project.description}\nChecks: ${JSON.stringify(checks)}\nDossiê:\n${String(dossier).slice(0, 28000)}`,
+          },
+        ],
+      }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const content = json.choices?.[0]?.message?.content;
+    if (!content) return null;
+    return { ...JSON.parse(content), modelUsed: "github-models/gpt-4o-mini" };
+  } catch {
+    return null;
+  }
+}
+
+async function main() {
+  if (!PR_NUMBER) {
+    console.error("PR_NUMBER ausente.");
+    process.exit(1);
+  }
+
+  // 1. Verificar os arquivos alterados pelo Pull Request
+  const changedFiles = await listarArquivosDoPr();
+  if (changedFiles.length === 0) {
+    await comentarNoPr("❌ **Pull Request Rejeitado:** Nenhum arquivo foi encontrado neste Pull Request.");
+    process.exit(1);
+  }
+
+  const topFolders = new Set();
+  const rootFilesTouched = [];
+
+  for (const file of changedFiles) {
+    const parts = file.split("/");
+    if (parts.length < 2) {
+      rootFilesTouched.push(file);
+    } else {
+      topFolders.add(parts[0].toUpperCase());
+    }
+  }
+
+  if (rootFilesTouched.length > 0 || topFolders.size !== 1) {
+    await comentarNoPr(
+      [
+        `## ❌ Pull Request Inválido — Violação de Isolamento de Subpasta`,
+        ``,
+        `Seu Pull Request deve adicionar ou modificar arquivos **exclusivamente dentro da pasta nomeada com a sua Chave Única** (\`P26-.../\` ou \`T26-.../\`).`,
+        ``,
+        `- **Pastas de topo detectadas:** ${Array.from(topFolders).map((f) => `\`${f}/\``).join(", ") || "nenhuma"}`,
+        ...(rootFilesTouched.length > 0
+          ? [`- **Arquivos fora da sua pasta que não podem ser alterados:** ${rootFilesTouched.map((f) => `\`${f}\``).join(", ")}`]
+          : []),
+        ``,
+        `Execute \`node iniciar.mjs SUA-CHAVE\` e faça \`git add SUA-CHAVE/\` para enviar apenas a sua pasta.`,
+      ].join("\n")
+    );
+    process.exit(1);
+  }
+
+  const chave = Array.from(topFolders)[0];
+  if (!KEY_REGEX.test(chave)) {
+    await comentarNoPr(
+      `## ❌ Formato de Pasta Inválido (\`${chave}/\`)\n\nA pasta deve ter exatamente o nome da sua Chave Oficial (\`P26-TURMA-XXXX-XXXX-XXXX-XXXX\`) ou da sua Chave de Teste (\`T26-TURMA-XXXX-XXXX-XXXX-XXXX\`).`
+    );
+    process.exit(1);
+  }
+
+  // 2. Validar a Chave no Endpoint do Worker (frankalcantara.com/api/projetos2026/validar)
+  const headers = { Accept: "application/json", "Content-Type": "application/json" };
+  if (VALIDATION_TOKEN) {
+    headers.Authorization = `Bearer ${VALIDATION_TOKEN}`;
+  }
+
+  const valRes = await fetch(`${API_BASE}/api/projetos2026/validar?chave=${encodeURIComponent(chave)}`, {
+    method: "GET",
+    headers,
+  });
+  const valData = await valRes.json().catch(() => ({}));
+
+  if (!valRes.ok || !valData.valid) {
+    await comentarNoPr(
+      [
+        `## ❌ Não Foi Possível Identificar o Aluno ou Validar a Chave (\`${chave}\`)`,
+        ``,
+        `- **Motivo:** ${valData.message || valData.error || "Chave não localizada no sistema de sorteio."}`,
+        ``,
+        `Verifique se você copiou a chave corretamente em \`https://frankalcantara.com/projetos2026\` e se já confirmou o e-mail de recebimento.`,
+      ].join("\n")
+    );
+    process.exit(1);
+  }
+
+  const { student, project, isTest } = valData;
+
+  // 3. Aluno e Projeto identificados com sucesso -> ACEITAR (MERGE) O PULL REQUEST
+  console.log(`✓ Aluno identificado: ${student.nomeCompleto} (RA: ${student.ra}, Turma: ${student.turma})`);
+  console.log(`✓ Aceitando (merging) Pull Request #${PR_NUMBER}...`);
+
+  const mergeRes = await githubApi(`/repos/${REPO}/pulls/${PR_NUMBER}/merge`, {
+    method: "PUT",
+    body: JSON.stringify({
+      commit_title: `Entrega ${isTest ? "[TESTE SEM NOTA] " : ""}${chave} — ${student.nomeCompleto} (RA ${student.ra})`,
+      merge_method: "squash",
+    }),
+  });
+
+  const mergedOk = mergeRes.ok;
+
+  await comentarNoPr(
+    [
+      `## ✅ Etapa 1 Concluída: Aluno Identificado e Pull Request Aceito!`,
+      ``,
+      `- **Estudante:** ${student.nomeCompleto}`,
+      `- **RA (Matrícula):** \`${student.ra}\``,
+      `- **Turma:** \`${student.turma}\``,
+      `- **Chave Validada:** \`${chave}\` (${isTest ? "🧪 **Projeto 0 de Teste — Sem Sorteio e Sem Nota**" : "🏆 **Projeto Oficial Sorteado — Valendo 0 a 100 pontos**"})`,
+      `- **Projeto Correspondente:** **#${project.id} — ${project.title}**`,
+      `- **Status do Merge:** ${mergedOk ? "Pull Request aceito e integrado (merged) automaticamente ✅" : "Identificado (aguardando merge manual ou já integrado)"}`,
+      ``,
+      `⏳ *Iniciando Etapa 2: Inspeção técnica da subpasta \`${chave}/\`, verificação do deploy no Cloudflare e avaliação por Inteligência Artificial...*`,
+    ].join("\n")
+  );
+
+  // 4. Etapa 2: Inspecionar a subpasta do aluno e aplicar a avaliação / nota
+  const folderPath = path.resolve(process.cwd(), chave);
+  const { checks, cloudflareUrl, dossier } = await inspecionarSubpasta(folderPath, chave, { checkLiveUrl: true });
+
+  const externalAiEvaluation = await consultarGitHubModelsFallback({
+    student,
+    project,
+    isTest,
+    checks,
+    dossier,
+  });
+
+  const evalRes = await fetch(`${API_BASE}/api/projetos2026/avaliar`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      chave,
+      prNumber: PR_NUMBER,
+      prUrl: PR_HTML_URL,
+      githubRepoUrl: PR_HEAD_REPO_URL,
+      cloudflareUrl,
+      checks,
+      dossier,
+      externalAiEvaluation,
+    }),
+  });
+
+  const evalData = await evalRes.json().catch(() => null);
+  if (!evalRes.ok || !evalData?.ok) {
+    await comentarNoPr(
+      `⚠️ **Aviso na Etapa 2:** O Pull Request foi aceito, mas houve uma falha temporária ao registrar a avaliação automática (${evalData?.message || evalRes.status}).`
+    );
+    process.exit(0);
+  }
+
+  await comentarNoPr(evalData.markdownReport);
+
+  const labels = [`turma:${student.turma}`, isTest ? "projeto-teste-sem-nota" : `nota:${evalData.scoreTotal}`];
+  await adicionarLabelsNoPr(labels);
+}
+
+main();

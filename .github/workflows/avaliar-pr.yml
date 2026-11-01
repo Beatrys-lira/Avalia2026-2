@@ -1,0 +1,37 @@
+name: Avaliador Automático de Projetos 2026
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  models: read
+
+jobs:
+  identificar-aceitar-e-avaliar:
+    name: Identificar Aluno, Aceitar PR e Avaliar com IA
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout seguro dos arquivos do Pull Request
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Executar Pipeline (1. Identificar e Merge -> 2. Avaliar e Atribuir Nota)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROJETOS_VALIDATION_TOKEN: ${{ secrets.PROJETOS_VALIDATION_TOKEN }}
+          PROJETOS_API_BASE: "https://frankalcantara.com"
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HTML_URL: ${{ github.event.pull_request.html_url }}
+          PR_HEAD_REPO_URL: ${{ github.event.pull_request.head.repo.html_url }}
+        run: node .github/scripts/avaliar-pr.mjs
