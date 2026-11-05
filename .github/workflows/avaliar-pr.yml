@@ -43,7 +43,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PROJETOS_VALIDATION_TOKEN: ${{ secrets.PROJETOS_VALIDATION_TOKEN }}
-          PROJETOS_API_BASE: "https://frankalcantara.com"
+          PROJETOS_API_BASE: ${{ vars.PROJETOS_API_BASE || 'https://frank-active-reader.frank-alcantara.workers.dev' }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HTML_URL: ${{ github.event.pull_request.html_url }}
           PR_HEAD_REPO_URL: ${{ github.event.pull_request.head.repo.html_url }}

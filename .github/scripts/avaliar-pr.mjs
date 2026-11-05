@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { inspecionarSubpasta } from "../../validar-local.mjs";
 
-const API_BASE = process.env.PROJETOS_API_BASE || "https://frankalcantara.com";
+const API_BASE = (process.env.PROJETOS_API_BASE || "https://frank-active-reader.frank-alcantara.workers.dev").replace(/\/+$/, "");
 const VALIDATION_TOKEN = process.env.PROJETOS_VALIDATION_TOKEN || "";
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const REPO = process.env.GITHUB_REPOSITORY || "frankalcantara/Avalia2026-2";
