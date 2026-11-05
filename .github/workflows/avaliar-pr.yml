@@ -15,27 +15,24 @@ jobs:
     name: Identificar Aluno, Aceitar PR e Avaliar com IA
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout dos scripts oficiais de avaliação (main)
+      - name: Checkout do repositório oficial (main)
         uses: actions/checkout@v4
         with:
-          repository: frankalcantara/Avalia2026-2
           ref: main
-          path: official-evaluator
 
-      - name: Checkout seguro dos arquivos do Pull Request do estudante
+      - name: Checkout dos arquivos do Pull Request em área isolada
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
-          clean: false
+          path: pr-code
           allow-unsafe-pr-checkout: true
 
-      - name: Restaurar scripts e validadores oficiais protegidos
+      - name: Carregar subpasta do estudante
         run: |
-          mkdir -p .github/scripts
-          cp -f official-evaluator/.github/scripts/avaliar-pr.mjs .github/scripts/avaliar-pr.mjs
-          cp -f official-evaluator/validar-local.mjs ./validar-local.mjs
-          rm -rf official-evaluator
+          cp -r pr-code/T26-* ./ 2>/dev/null || true
+          cp -r pr-code/P26-* ./ 2>/dev/null || true
+          rm -rf pr-code
 
       - name: Configurar Node.js 22
         uses: actions/setup-node@v4
