@@ -12,6 +12,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { execSync } from "node:child_process";
 import { inspecionarSubpasta } from "../../validar-local.mjs";
 
 const API_BASE = (process.env.PROJETOS_API_BASE || "https://frank-active-reader.frank-alcantara.workers.dev").replace(/\/+$/, "");
@@ -205,17 +206,38 @@ async function main() {
   console.log(`✓ Aluno identificado: ${student.nomeCompleto} (RA: ${student.ra}, Turma: ${student.turma})`);
   console.log(`✓ Aceitando (merging) Pull Request #${PR_NUMBER}...`);
 
-  const mergeRes = await githubApi(`/repos/${REPO}/pulls/${PR_NUMBER}/merge`, {
-    method: "PUT",
-    body: JSON.stringify({
-      commit_title: `Entrega ${isTest ? "[TESTE SEM NOTA] " : ""}${chave} — ${student.nomeCompleto} (RA ${student.ra})`,
-      merge_method: "squash",
-    }),
-  });
+  let mergedOk = false;
+  try {
+    const mergeRes = await githubApi(`/repos/${REPO}/pulls/${PR_NUMBER}/merge`, {
+      method: "PUT",
+      body: JSON.stringify({
+        commit_title: `Entrega ${isTest ? "[TESTE SEM NOTA] " : ""}${chave} — ${student.nomeCompleto} (RA ${student.ra})`,
+        merge_method: "squash",
+      }),
+    });
+    mergedOk = mergeRes.ok;
+    console.log(`✓ Status do Merge REST: ${mergeRes.status} (ok=${mergedOk})`);
+    if (!mergedOk) console.warn("Detalhe do merge REST:", JSON.stringify(mergeRes.data));
+  } catch (err) {
+    console.warn("Falha no merge REST:", err.message);
+  }
 
-  const mergedOk = mergeRes.ok;
-  console.log(`✓ Status do Merge: ${mergeRes.status} (ok=${mergedOk})`);
-  if (!mergedOk) console.warn("Detalhe do merge:", JSON.stringify(mergeRes.data));
+  if (!mergedOk) {
+    try {
+      console.log(`Tentando merge via gh CLI para PR #${PR_NUMBER}...`);
+      execSync(
+        `gh pr merge ${PR_NUMBER} --squash --repo ${REPO} --subject "Entrega ${isTest ? '[TESTE SEM NOTA] ' : ''}${chave} — ${student.nomeCompleto} (RA ${student.ra})"`,
+        {
+          stdio: "inherit",
+          env: { ...process.env, GH_TOKEN: GITHUB_TOKEN },
+        }
+      );
+      mergedOk = true;
+      console.log("✓ Merge via gh CLI bem-sucedido!");
+    } catch (err) {
+      console.warn("Detalhe do merge via gh CLI:", err.message);
+    }
+  }
 
   await comentarNoPr(
     [
