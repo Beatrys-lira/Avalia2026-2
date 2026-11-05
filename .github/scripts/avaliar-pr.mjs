@@ -162,16 +162,29 @@ async function main() {
   }
 
   // 2. Validar a Chave no Endpoint do Worker (frankalcantara.com/api/projetos2026/validar)
-  const headers = { Accept: "application/json", "Content-Type": "application/json" };
+  const headers = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "User-Agent": "Avalia2026-Evaluator/1.0 (GitHubActions)",
+  };
   if (VALIDATION_TOKEN) {
     headers.Authorization = `Bearer ${VALIDATION_TOKEN}`;
   }
 
-  const valRes = await fetch(`${API_BASE}/api/projetos2026/validar?chave=${encodeURIComponent(chave)}`, {
+  const validarUrl = `${API_BASE}/api/projetos2026/validar?chave=${encodeURIComponent(chave)}`;
+  console.log(`[Validar] Consultando: ${validarUrl}`);
+  const valRes = await fetch(validarUrl, {
     method: "GET",
     headers,
   });
-  const valData = await valRes.json().catch(() => ({}));
+  const valText = await valRes.text();
+  let valData = {};
+  try {
+    valData = JSON.parse(valText);
+  } catch (err) {
+    console.error(`[Validar] Erro no parse JSON (HTTP ${valRes.status}):`, valText.slice(0, 300));
+  }
+  console.log(`[Validar] HTTP ${valRes.status} -> valid: ${valData.valid}, student: ${valData.student?.nomeCompleto || "N/A"}`);
 
   if (!valRes.ok || !valData.valid) {
     await comentarNoPr(
