@@ -192,7 +192,7 @@ ${project.description}
 
 ---
 
-## Como Publicar esta Subpasta no Cloudflare Pages + D1
+## Como Publicar esta Subpasta no Cloudflare Pages + D1 + Discord OAuth2
 
 1. No painel da Cloudflare (**Workers & Pages** → **Create** → **Pages** → **Connect to Git**), selecione o seu fork do repositório \`Avalia2026-2\`.
 2. Configure os parâmetros de build apontando para esta subpasta:
@@ -206,8 +206,24 @@ ${project.description}
    # Copie o database_id gerado para o arquivo wrangler.jsonc e execute:
    npx.cmd wrangler d1 migrations apply DB --remote
    \`\`\`
-4. Atualize o campo **URL_CLOUDFLARE** no topo deste \`README.md\` com o endereço público gerado pela Cloudflare.
-5. Na raiz do repositório, execute \`node validar-local.mjs ${chave}\` para validar todos os critérios antes de fazer o commit e abrir o Pull Request.
+4. **Vincule o Banco D1 ao seu Cloudflare Pages (Obrigatório para ativar env.DB):**
+   - No painel da Cloudflare: acesse seu projeto Pages → **Settings** → **Functions** → **D1 database bindings**.
+   - Clique em **Add binding**:
+     - **Variable name:** \`DB\`
+     - **D1 database:** selecione o banco que você criou (\`db-${slugLower}\`).
+5. **Configuração do Discord OAuth2 (Obrigatório para autenticação real):**
+   - Acesse o **Discord Developer Portal** (https://discord.com/developers/applications) e crie uma nova Application.
+   - Na aba **OAuth2**:
+     - Copie o **Client ID** e gere o **Client Secret**.
+     - Em **Redirects**, adicione a URL exata do deploy:
+       \`https://${slugLower}.pages.dev/api/auth/discord/callback\`
+   - No painel do seu projeto no Cloudflare Pages:
+     - Acesse **Settings** → **Environment variables**.
+     - Adicione as variáveis de ambiente:
+       - \`DISCORD_CLIENT_ID\`
+       - \`DISCORD_CLIENT_SECRET\`
+6. Atualize o campo **URL_CLOUDFLARE** no topo deste \`README.md\` com o endereço público gerado pela Cloudflare.
+7. Na raiz do repositório, execute \`node validar-local.mjs ${chave}\` para validar todos os critérios antes de fazer o commit e abrir o Pull Request.
 `;
 
   // 3. AGENTS.md (Documentação obrigatória dos 3+ agentes e do Harness)
@@ -335,6 +351,16 @@ export async function onRequest(context) {
   const projectId = ${Number(project.id)};
   const projectTitle = ${JSON.stringify(project.title)};
 
+  // Lê sessão real do Discord a partir do cookie HttpOnly se autenticado
+  const cookieHeader = request.headers.get("Cookie") || "";
+  let sessionUser = null;
+  const sessionMatch = cookieHeader.match(/discord_session=([^;]+)/);
+  if (sessionMatch) {
+    try {
+      sessionUser = JSON.parse(decodeURIComponent(atob(sessionMatch[1])));
+    } catch {}
+  }
+
   if (request.method === "GET") {
     let dbConnected = false;
     let totalRegistros = 0;
@@ -362,6 +388,7 @@ export async function onRequest(context) {
       projectTitle,
       d1Connected: dbConnected,
       discordOAuthConfigured: Boolean(env.DISCORD_CLIENT_ID),
+      sessionUser,
       totalRegistros,
       ultimosRegistros,
       serverTimestamp: new Date().toISOString(),
@@ -423,6 +450,92 @@ export async function onRequestGet(context) {
   authorizeUrl.searchParams.set("scope", "identify");
 
   return Response.redirect(authorizeUrl.href, 302);
+}
+`;
+
+  // 8B. functions/api/auth/discord/callback.js
+  const functionDiscordCallbackJs = `/**
+ * Cloudflare Pages Function — /api/auth/discord/callback
+ * Troca o authorization code pelo token de acesso do Discord, obtém o perfil (@me)
+ * e persiste no Cloudflare D1 com cookie de sessão.
+ */
+export async function onRequestGet(context) {
+  const { request, env } = context;
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const error = url.searchParams.get("error");
+
+  if (error || !code) {
+    return Response.redirect(new URL("/?auth_error=" + encodeURIComponent(error || "missing_code"), url.origin).href, 302);
+  }
+
+  if (!env.DISCORD_CLIENT_ID || !env.DISCORD_CLIENT_SECRET) {
+    return Response.json({
+      ok: false,
+      error: "missing_credentials",
+      message: "Defina DISCORD_CLIENT_ID e DISCORD_CLIENT_SECRET nas variáveis do Cloudflare Pages (Settings -> Environment variables).",
+    }, { status: 500 });
+  }
+
+  const redirectUri = new URL("/api/auth/discord/callback", url.origin).href;
+
+  try {
+    const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: env.DISCORD_CLIENT_ID,
+        client_secret: env.DISCORD_CLIENT_SECRET,
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: redirectUri,
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      return Response.redirect(new URL("/?auth_error=token_exchange_failed", url.origin).href, 302);
+    }
+
+    const tokenData = await tokenRes.json();
+    const userRes = await fetch("https://discord.com/api/users/@me", {
+      headers: { Authorization: \`Bearer \${tokenData.access_token}\` },
+    });
+
+    if (!userRes.ok) {
+      return Response.redirect(new URL("/?auth_error=fetch_user_failed", url.origin).href, 302);
+    }
+
+    const discordUser = await userRes.json();
+    const userId = discordUser.id;
+    const username = discordUser.global_name || discordUser.username;
+    const avatar = discordUser.avatar
+      ? \`https://cdn.discordapp.com/avatars/\${userId}/\${discordUser.avatar}.png\`
+      : "https://cdn.discordapp.com/embed/avatars/0.png";
+
+    if (env.DB) {
+      try {
+        await env.DB.prepare(
+          "CREATE TABLE IF NOT EXISTS discord_users (user_id TEXT PRIMARY KEY, username TEXT NOT NULL, avatar TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+        ).run();
+        await env.DB.prepare(
+          "INSERT INTO discord_users (user_id, username, avatar, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET username = excluded.username, avatar = excluded.avatar, updated_at = CURRENT_TIMESTAMP"
+        ).bind(userId, username, avatar).run();
+      } catch {}
+    }
+
+    const sessionPayload = JSON.stringify({ userId, username, avatar });
+    const encodedSession = btoa(encodeURIComponent(sessionPayload));
+
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: "/?login=success",
+        "Set-Cookie": \`discord_session=\${encodedSession}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400; Secure\`,
+      },
+    });
+  } catch (err) {
+    return Response.redirect(new URL("/?auth_error=exception", url.origin).href, 302);
+  }
 }
 `;
 
@@ -594,7 +707,9 @@ footer {
         <strong>Projeto #${project.id}: ${project.title}</strong>
       </div>
       <div class="discord-badge" id="discordProfile">
-        <span id="discordUserText">Discord OAuth2 · Conectado</span>
+        <a id="discordLoginLink" href="/api/auth/discord" style="color:inherit;text-decoration:none;">
+          <span id="discordUserText">Entrar com Discord OAuth2</span>
+        </a>
       </div>
     </div>
   </header>
@@ -651,6 +766,12 @@ async function carregarStatus() {
     const res = await fetch("/api/status");
     const data = await res.json();
     listEl.innerHTML = "";
+        if (data.sessionUser) {
+      discordSession.user_id = data.sessionUser.userId;
+      discordSession.username = data.sessionUser.username;
+      discordSession.avatar = data.sessionUser.avatar || discordSession.avatar;
+      renderDiscordHeader();
+    }
     const items = Array.isArray(data.ultimosRegistros) ? data.ultimosRegistros : [];
     if (items.length === 0) {
       const li = document.createElement("li");
@@ -711,6 +832,7 @@ carregarStatus();
   escreverArquivoSeguro(path.join(rootDir, "migrations", "0001_init.sql"), migrationSql);
   escreverArquivoSeguro(path.join(rootDir, "functions", "api", "status.js"), functionStatusJs);
   escreverArquivoSeguro(path.join(rootDir, "functions", "api", "auth", "discord.js"), functionDiscordJs);
+  escreverArquivoSeguro(path.join(rootDir, "functions", "api", "auth", "discord", "callback.js"), functionDiscordCallbackJs);
   escreverArquivoSeguro(path.join(rootDir, "public", "styles.css"), stylesCss);
   escreverArquivoSeguro(path.join(rootDir, "public", "index.html"), indexHtml);
   escreverArquivoSeguro(path.join(rootDir, "public", "app.js"), appJs);

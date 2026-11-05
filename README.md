@@ -2,7 +2,7 @@
 
 Bem-vindo ao repositório oficial de entrega dos projetos semestrais de **2026** do **Prof. Frank de Alcantara** ([`https://frankalcantara.com/projetos2026`](https://frankalcantara.com/projetos2026)).
 
-Cada estudante desenvolve seu trabalho dentro de uma **subpasta exclusiva nomeada exatamente com a sua Chave Única**, utiliza essa mesma subpasta no seu próprio **Fork** para alimentar o deploy online na **Cloudflare (Pages + D1)** e realiza a entrega abrindo um **Pull Request** para este repositório.
+Cada estudante desenvolve seu trabalho dentro de uma **subpasta exclusiva nomeada exatamente com a sua Chave Única**, utiliza essa mesma subpasta no seu próprio **Fork** para alimentar o deploy online na **Cloudflare (Pages + D1)** com autenticação **Discord OAuth2**, e realiza a entrega abrindo um **Pull Request** para este repositório.
 
 ---
 
@@ -32,13 +32,13 @@ Os computadores dos laboratórios da instituição utilizam o **Node.js instalad
 Antes de entregar o seu projeto oficial, **todos os estudantes fazem um mesmo Projeto Extra de Teste (Projeto 0)**, **sem sorteio e sem valer nota**, exclusivamente para testar:
 - O funcionamento do Node.js via Scoop na máquina da instituição;
 - A criação automática da subpasta e dos 3 agentes + skills;
-- A publicação da subpasta no Cloudflare Pages + D1;
-- A abertura do Pull Request e a correção automática pelo robô no GitHub Actions.
+- A publicação da subpasta no Cloudflare Pages + D1 com Discord OAuth2;
+- A abertura do Pull Request e a verificação e aceitação automática pelo robô no GitHub Actions.
 
 ### Passo a Passo do Projeto de Teste (`T26-...`)
 
-1. Acesse [`https://frankalcantara.com/projetos2026`](https://frankalcantara.com/projetos2026), faça login com sua conta Google e registre seu Nome Completo, Turma e RA.
-2. Na tela do sistema (e no seu e-mail), copie a sua **Chave de Teste (Sem Nota)** no formato `T26-<TURMA>-XXXX-XXXX-XXXX-XXXX`.
+1. Acesse o **Modo de Teste** em [`https://frankalcantara.com/projetos2026/teste`](https://frankalcantara.com/projetos2026/teste) (nesta URL todos os sorteios oficiais estão protegidos e bloqueados), faça login com sua conta Google, registre seu Nome Completo, Turma e RA e clique no link de confirmação enviado para seu e-mail.
+2. Na tela do sistema (e no e-mail de confirmação), copie a sua **Chave de Teste (Sem Nota)** no formato `T26-<TURMA>-XXXX-XXXX-XXXX-XXXX`.
 3. Clique no botão **Fork** no topo direito deste repositório (`frankalcantara/Avalia2026-2`) para criar uma cópia na sua conta do GitHub (mantenha seu fork **Público**).
 4. Clone o seu fork na máquina do laboratório:
    ```powershell
@@ -49,7 +49,7 @@ Antes de entregar o seu projeto oficial, **todos os estudantes fazem um mesmo Pr
    ```powershell
    node iniciar.mjs T26-2A-XXXX-XXXX-XXXX-XXXX
    ```
-   O script verificará seu ambiente Scoop/Node.js, validará sua chave na API oficial e criará a pasta `T26-2A-XXXX-XXXX-XXXX-XXXX/` contendo um **Painel de Diagnóstico Cloudflare + D1 + Discord** completo e pronto para publicação!
+   O script verificará seu ambiente Scoop/Node.js, validará sua chave na API oficial e criará a pasta `T26-2A-XXXX-XXXX-XXXX-XXXX/` contendo o **Painel de Diagnóstico Cloudflare + D1 + Discord** completo e pronto para publicação!
 6. Faça commit e push da sua pasta de teste para o seu fork:
    ```powershell
    git add T26-2A-XXXX-XXXX-XXXX-XXXX
@@ -58,19 +58,39 @@ Antes de entregar o seu projeto oficial, **todos os estudantes fazem um mesmo Pr
    ```
 7. Conecte o seu fork ao **Cloudflare Pages**:
    - Em **Workers & Pages → Create → Pages → Connect to Git**, escolha seu repositório `Avalia2026-2`.
-   - Em **Root directory (Diretório raiz)**, informe o nome da pasta: `T26-2A-XXXX-XXXX-XXXX-XXXX`.
+   - Em **Root directory (Diretório raiz)**, informe o nome exato da subpasta: `T26-2A-XXXX-XXXX-XXXX-XXXX`.
+   - Em **Build command**, deixe em branco *(HTML/CSS/JS puro)*.
    - Em **Build output directory**, informe: `public`.
-8. Copie a URL gerada pela Cloudflare (`https://...pages.dev`), cole no campo `URL_CLOUDFLARE` dentro de `T26-.../README.md`, valide localmente e atualize seu branch:
+8. **Vincule o Cloudflare D1 ao seu Pages (Obrigatório para persistência serverless):**
+   - No terminal (dentro da subpasta `T26-...`), crie o banco D1 e aplique as migrações:
+     ```powershell
+     cd T26-2A-XXXX-XXXX-XXXX-XXXX
+     npx.cmd wrangler d1 create db-t26-2a-xxxx-xxxx-xxxx-xxxx
+     # Cole o database_id gerado no arquivo wrangler.jsonc e execute:
+     npx.cmd wrangler d1 migrations apply DB --remote
+     ```
+   - No painel da Cloudflare: acesse seu projeto Pages → **Settings** → **Functions** → **D1 database bindings**.
+   - Adicione o binding: **Variable name:** `DB` | **D1 database:** selecione o banco que você criou.
+9. **Configure o Discord OAuth2 (Obrigatório para autenticação de usuários):**
+   - Acesse o [Discord Developer Portal](https://discord.com/developers/applications) e crie uma nova Application.
+   - Na aba **OAuth2**:
+     - Copie o **Client ID** e gere o **Client Secret**.
+     - Em **Redirects**, adicione a URL exata do seu projeto na Cloudflare:
+       `https://<seu-projeto>.pages.dev/api/auth/discord/callback`
+   - No painel do seu projeto no Cloudflare Pages:
+     - Acesse **Settings** → **Environment variables**.
+     - Adicione as variáveis `DISCORD_CLIENT_ID` e `DISCORD_CLIENT_SECRET`.
+10. Copie a URL gerada pela Cloudflare (`https://...pages.dev`), cole no campo `URL_CLOUDFLARE` dentro de `T26-.../README.md`, valide localmente e atualize seu branch:
    ```powershell
    node validar-local.mjs T26-2A-XXXX-XXXX-XXXX-XXXX
    git add T26-2A-XXXX-XXXX-XXXX-XXXX
    git commit -m "Atualiza URL Cloudflare do projeto de teste"
    git push origin main
    ```
-9. Abra um **Pull Request** do seu fork para `frankalcantara/Avalia2026-2`. O robô irá:
+11. Abra um **Pull Request** do seu fork para `frankalcantara/Avalia2026-2`. O robô irá:
    - Ler o Pull Request, identificar você e verificar que apenas a sua pasta `T26-.../` foi alterada;
    - **Aceitar (fazer merge) automaticamente** do seu Pull Request;
-   - Executar o diagnóstico de IA e responder no PR confirmando que seu processo de entrega está 100% aprovado!
+   - Executar o diagnóstico de conformidade técnica e responder no PR confirmando que seu processo de entrega está 100% aprovado!
 
 ---
 
@@ -84,7 +104,7 @@ Após confirmar o recebimento do e-mail de sorteio em [`https://frankalcantara.c
    ```
 2. Desenvolva todo o código do seu projeto sorteado **exclusivamente dentro da pasta `P26-2A-XXXX-XXXX-XXXX-XXXX/`**:
    - `public/` — Frontend em HTML5, CSS3 e JavaScript puro (Vanilla JS), exibindo a chave `P26-...` no rodapé (`<footer>`).
-   - `functions/` — Rotas serverless nas Cloudflare Pages Functions com autenticação **Discord OAuth2** e validações de negócio no servidor.
+   - `functions/` — Rotas serverless nas Cloudflare Pages Functions com autenticação **Discord OAuth2** (`/api/auth/discord` e `/api/auth/discord/callback`) e validações de negócio no servidor.
    - `migrations/` — Esquema SQLite relacional para o banco **Cloudflare D1**.
    - `AGENTS.md` — Documentação detalhada dos **mínimo 3 agentes diferentes** utilizados no desenvolvimento (sendo obrigatoriamente **1 agente de teste e validação**) e em qual **harness** operaram.
    - `skills/` — Diretório contendo os arquivos `SKILL.md` que os seus agentes utilizaram.

@@ -10,6 +10,7 @@
  *          o relatório detalhado no Pull Request.
  */
 
+import fs from "node:fs";
 import path from "node:path";
 import { inspecionarSubpasta } from "../../validar-local.mjs";
 
@@ -200,6 +201,8 @@ async function main() {
   });
 
   const mergedOk = mergeRes.ok;
+  console.log(`✓ Status do Merge: ${mergeRes.status} (ok=${mergedOk})`);
+  if (!mergedOk) console.warn("Detalhe do merge:", JSON.stringify(mergeRes.data));
 
   await comentarNoPr(
     [
@@ -217,7 +220,13 @@ async function main() {
   );
 
   // 4. Etapa 2: Inspecionar a subpasta do aluno e aplicar a avaliação / nota
-  const folderPath = path.resolve(process.cwd(), chave);
+  let targetFolder = chave;
+  if (!fs.existsSync(path.resolve(process.cwd(), chave))) {
+    const entries = fs.readdirSync(process.cwd());
+    const match = entries.find((e) => e.toUpperCase() === chave.toUpperCase());
+    if (match) targetFolder = match;
+  }
+  const folderPath = path.resolve(process.cwd(), targetFolder);
   const { checks, cloudflareUrl, dossier } = await inspecionarSubpasta(folderPath, chave, { checkLiveUrl: true });
 
   const externalAiEvaluation = await consultarGitHubModelsFallback({
