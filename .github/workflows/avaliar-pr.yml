@@ -27,6 +27,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
+          clean: false
           allow-unsafe-pr-checkout: true
 
       - name: Restaurar scripts e validadores oficiais protegidos
