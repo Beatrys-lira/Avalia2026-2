@@ -44,6 +44,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PROJETOS_VALIDATION_TOKEN: ${{ secrets.PROJETOS_VALIDATION_TOKEN }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || 'deepseek-flash' }}
           PROJETOS_API_BASE: ${{ vars.PROJETOS_API_BASE || 'https://frank-active-reader.frank-alcantara.workers.dev' }}
           TURMA_FILTRO: ${{ github.event.inputs.turma || 'todas' }}
         run: node .github/scripts/encerrar-avaliacoes.mjs

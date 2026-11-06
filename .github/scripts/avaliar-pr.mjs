@@ -19,6 +19,8 @@ import { inspecionarSubpasta } from "../../validar-local.mjs";
 const API_BASE = (process.env.PROJETOS_API_BASE || "https://frank-active-reader.frank-alcantara.workers.dev").replace(/\/+$/, "");
 const VALIDATION_TOKEN = process.env.PROJETOS_VALIDATION_TOKEN || "";
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
+const DEEPSEEK_API_KEY = (process.env.DEEPSEEK_API_KEY || "").trim();
+const DEEPSEEK_MODEL = (process.env.DEEPSEEK_MODEL || "deepseek-flash").trim();
 const REPO = process.env.GITHUB_REPOSITORY || "frankalcantara/Avalia2026-2";
 const PR_NUMBER = Number(process.env.PR_NUMBER || 0);
 const PR_HTML_URL = process.env.PR_HTML_URL || `https://github.com/${REPO}/pull/${PR_NUMBER}`;
@@ -76,40 +78,82 @@ async function listarArquivosDoPr() {
   return files;
 }
 
-async function consultarGitHubModelsFallback({ student, project, isTest, checks, dossier }) {
-  if (!GITHUB_TOKEN) return null;
-  try {
-    const res = await fetch("https://models.inference.ai.azure.com/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        temperature: 0.1,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              "Você é o avaliador assistente da disciplina do Prof. Frank de Alcantara. Retorne um JSON com { scores: { deploy (0-25), backend (0-25), frontend (0-15), agents (0-25), repo (0-10) }, summary, strengths: [], improvements: [] }.",
-          },
-          {
-            role: "user",
-            content: `Modalidade: ${isTest ? "Teste Sem Nota" : "Oficial"}\nAluno: ${student.nomeCompleto}\nProjeto #${project.id}: ${project.title}\nDescrição: ${project.description}\nChecks: ${JSON.stringify(checks)}\nDossiê:\n${String(dossier).slice(0, 28000)}`,
-          },
-        ],
-      }),
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    const content = json.choices?.[0]?.message?.content;
-    if (!content) return null;
-    return { ...JSON.parse(content), modelUsed: "github-models/gpt-4o-mini" };
-  } catch {
-    return null;
+async function consultarAiEvaluation({ student, project, isTest, checks, dossier }) {
+  if (DEEPSEEK_API_KEY) {
+    try {
+      const res = await fetch("https://api.deepseek.com/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: DEEPSEEK_MODEL,
+          temperature: 0.1,
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content:
+                "Você é o avaliador assistente da disciplina do Prof. Frank de Alcantara. Retorne um JSON com { scores: { deploy (0-25), backend (0-25), frontend (0-15), agents (0-25), repo (0-10) }, summary, strengths: [], improvements: [] }.",
+            },
+            {
+              role: "user",
+              content: `Modalidade: ${isTest ? "Teste Sem Nota" : "Oficial"}\nAluno: ${student.nomeCompleto}\nProjeto #${project.id}: ${project.title}\nDescrição: ${project.description}\nChecks: ${JSON.stringify(checks)}\nDossiê:\n${String(dossier).slice(0, 50000)}`,
+            },
+          ],
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const content = json.choices?.[0]?.message?.content;
+        if (content) {
+          return { ...JSON.parse(content), modelUsed: `deepseek/${DEEPSEEK_MODEL}` };
+        }
+      } else {
+        console.warn(`[DeepSeek API] Status ${res.status}: ${await res.text()}`);
+      }
+    } catch (err) {
+      console.warn("[DeepSeek API] Erro na consulta:", err.message);
+    }
   }
+
+  if (GITHUB_TOKEN) {
+    try {
+      const res = await fetch("https://models.inference.ai.azure.com/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          temperature: 0.1,
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content:
+                "Você é o avaliador assistente da disciplina do Prof. Frank de Alcantara. Retorne um JSON com { scores: { deploy (0-25), backend (0-25), frontend (0-15), agents (0-25), repo (0-10) }, summary, strengths: [], improvements: [] }.",
+            },
+            {
+              role: "user",
+              content: `Modalidade: ${isTest ? "Teste Sem Nota" : "Oficial"}\nAluno: ${student.nomeCompleto}\nProjeto #${project.id}: ${project.title}\nDescrição: ${project.description}\nChecks: ${JSON.stringify(checks)}\nDossiê:\n${String(dossier).slice(0, 28000)}`,
+            },
+          ],
+        }),
+      });
+      if (!res.ok) return null;
+      const json = await res.json();
+      const content = json.choices?.[0]?.message?.content;
+      if (!content) return null;
+      return { ...JSON.parse(content), modelUsed: "github-models/gpt-4o-mini" };
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 async function main() {
@@ -274,7 +318,7 @@ async function main() {
   const { checks, cloudflareUrl, dossier } = await inspecionarSubpasta(folderPath, chave, { checkLiveUrl: true });
 
   if (isTest) {
-    const externalAiEvaluation = await consultarGitHubModelsFallback({
+    const externalAiEvaluation = await consultarAiEvaluation({
       student,
       project,
       isTest: true,
