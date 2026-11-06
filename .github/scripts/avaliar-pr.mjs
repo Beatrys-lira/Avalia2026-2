@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
  * .github/scripts/avaliar-pr.mjs
- * Pipeline Automatizado de Correção de Pull Requests para frankalcantara/Avalia2026-2
+ * Pipeline Automatizado de Verificação de Pull Requests para frankalcantara/Avalia2026-2
  *
  * Etapa 1: Lê os arquivos do PR, verifica isolamento na pasta <CHAVE>/, valida a chave no endpoint
- *          de auditoria (identificando aluno, RA, turma e projeto) e ACEITA (merge) o Pull Request.
- * Etapa 2: Inspeciona o código, consulta o modelo de IA (Worker Active Learning Groq + GitHub Models),
- *          registra a nota (ou aprovação de teste sem nota para chaves T26-...) no banco D1 e publica
- *          o relatório detalhado no Pull Request.
+ *          de auditoria (identificando aluno, RA, turma e projeto).
+ *          - Se for Projeto 0 de Treino (T26-...): Realiza o auto-merge para testar o ambiente.
+ *          - Se for Projeto Oficial (P26-...): MANTÉM O PR ABERTO para permitir iterações do aluno
+ *            e proteger o código da branch main até a data de encerramento da avaliação.
+ * Etapa 2: Inspeciona a subpasta e publica o checklist preliminar de conformidade técnica no PR.
  */
 
 import fs from "node:fs";
@@ -202,59 +203,67 @@ async function main() {
 
   const { student, project, isTest } = valData;
 
-  // 3. Aluno e Projeto identificados com sucesso -> ACEITAR (MERGE) O PULL REQUEST
+  // 3. Aluno e Projeto identificados com sucesso
   console.log(`✓ Aluno identificado: ${student.nomeCompleto} (RA: ${student.ra}, Turma: ${student.turma})`);
-  console.log(`✓ Aceitando (merging) Pull Request #${PR_NUMBER}...`);
 
   let mergedOk = false;
-  try {
-    const mergeRes = await githubApi(`/repos/${REPO}/pulls/${PR_NUMBER}/merge`, {
-      method: "PUT",
-      body: JSON.stringify({
-        commit_title: `Entrega ${isTest ? "[TESTE SEM NOTA] " : ""}${chave} — ${student.nomeCompleto} (RA ${student.ra})`,
-        merge_method: "squash",
-      }),
-    });
-    mergedOk = mergeRes.ok;
-    console.log(`✓ Status do Merge REST: ${mergeRes.status} (ok=${mergedOk})`);
-    if (!mergedOk) console.warn("Detalhe do merge REST:", JSON.stringify(mergeRes.data));
-  } catch (err) {
-    console.warn("Falha no merge REST:", err.message);
-  }
-
-  if (!mergedOk) {
+  if (isTest) {
+    console.log(`✓ Projeto 0 de Treino: Aceitando (merging) Pull Request de teste #${PR_NUMBER}...`);
     try {
-      console.log(`Tentando merge via gh CLI para PR #${PR_NUMBER}...`);
-      execSync(
-        `gh pr merge ${PR_NUMBER} --squash --repo ${REPO} --subject "Entrega ${isTest ? '[TESTE SEM NOTA] ' : ''}${chave} — ${student.nomeCompleto} (RA ${student.ra})"`,
-        {
-          stdio: "inherit",
-          env: { ...process.env, GH_TOKEN: GITHUB_TOKEN },
-        }
-      );
-      mergedOk = true;
-      console.log("✓ Merge via gh CLI bem-sucedido!");
+      const mergeRes = await githubApi(`/repos/${REPO}/pulls/${PR_NUMBER}/merge`, {
+        method: "PUT",
+        body: JSON.stringify({
+          commit_title: `Entrega [TESTE SEM NOTA] ${chave} — ${student.nomeCompleto} (RA ${student.ra})`,
+          merge_method: "squash",
+        }),
+      });
+      mergedOk = mergeRes.ok;
+      console.log(`✓ Status do Merge REST: ${mergeRes.status} (ok=${mergedOk})`);
+      if (!mergedOk) console.warn("Detalhe do merge REST:", JSON.stringify(mergeRes.data));
     } catch (err) {
-      console.warn("Detalhe do merge via gh CLI:", err.message);
+      console.warn("Falha no merge REST:", err.message);
     }
+
+    if (!mergedOk) {
+      try {
+        console.log(`Tentando merge via gh CLI para PR #${PR_NUMBER}...`);
+        execSync(
+          `gh pr merge ${PR_NUMBER} --squash --repo ${REPO} --subject "Entrega [TESTE SEM NOTA] ${chave} — ${student.nomeCompleto} (RA ${student.ra})"`,
+          {
+            stdio: "inherit",
+            env: { ...process.env, GH_TOKEN: GITHUB_TOKEN },
+          }
+        );
+        mergedOk = true;
+        console.log("✓ Merge via gh CLI bem-sucedido!");
+      } catch (err) {
+        console.warn("Detalhe do merge via gh CLI:", err.message);
+      }
+    }
+  } else {
+    console.log(`✓ Projeto Oficial P26: Pull Request #${PR_NUMBER} mantido ABERTO para permitir iterações do aluno até o encerramento.`);
   }
 
   await comentarNoPr(
     [
-      `## ✅ Etapa 1 Concluída: Aluno Identificado e Pull Request Aceito!`,
+      `## ✅ Etapa 1 Concluída: Aluno Identificado e ${isTest ? "Pull Request Aceito (Treino)" : "Entrega Registrada com Sucesso!"}`,
       ``,
       `- **Estudante:** ${student.nomeCompleto}`,
       `- **RA (Matrícula):** \`${student.ra}\``,
       `- **Turma:** \`${student.turma}\``,
       `- **Chave Validada:** \`${chave}\` (${isTest ? "🧪 **Projeto 0 de Teste — Sem Sorteio e Sem Nota**" : "🏆 **Projeto Oficial Sorteado — Valendo 0 a 100 pontos**"})`,
       `- **Projeto Correspondente:** **#${project.id} — ${project.title}**`,
-      `- **Status do Merge:** ${mergedOk ? "Pull Request aceito e integrado (merged) automaticamente ✅" : "Identificado (aguardando merge manual ou já integrado)"}`,
+      `- **Status do Pull Request:** ${
+        isTest
+          ? (mergedOk ? "Pull Request de teste integrado (merged) com sucesso ✅" : "Integrado no repositório ✅")
+          : "Aberto e Registrado ✅ (O merge oficial e a nota definitiva serão processados no encerramento das entregas pelo professor)"
+      }`,
       ``,
-      `⏳ *Iniciando Etapa 2: Inspeção técnica da subpasta \`${chave}/\`, verificação do deploy no Cloudflare e avaliação por Inteligência Artificial...*`,
+      `⏳ *Iniciando pré-inspeção técnica da subpasta \`${chave}/\` e verificação do deploy no Cloudflare...*`,
     ].join("\n")
   );
 
-  // 4. Etapa 2: Inspecionar a subpasta do aluno e aplicar a avaliação / nota
+  // 4. Etapa 2: Inspecionar a subpasta do aluno
   let targetFolder = chave;
   if (!fs.existsSync(path.resolve(process.cwd(), chave))) {
     const entries = fs.readdirSync(process.cwd());
@@ -264,41 +273,62 @@ async function main() {
   const folderPath = path.resolve(process.cwd(), targetFolder);
   const { checks, cloudflareUrl, dossier } = await inspecionarSubpasta(folderPath, chave, { checkLiveUrl: true });
 
-  const externalAiEvaluation = await consultarGitHubModelsFallback({
-    student,
-    project,
-    isTest,
-    checks,
-    dossier,
-  });
-
-  const evalRes = await fetch(`${API_BASE}/api/projetos2026/avaliar`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      chave,
-      prNumber: PR_NUMBER,
-      prUrl: PR_HTML_URL,
-      githubRepoUrl: PR_HEAD_REPO_URL,
-      cloudflareUrl,
+  if (isTest) {
+    const externalAiEvaluation = await consultarGitHubModelsFallback({
+      student,
+      project,
+      isTest: true,
       checks,
       dossier,
-      externalAiEvaluation,
-    }),
-  });
+    });
 
-  const evalData = await evalRes.json().catch(() => null);
-  if (!evalRes.ok || !evalData?.ok) {
-    await comentarNoPr(
-      `⚠️ **Aviso na Etapa 2:** O Pull Request foi aceito, mas houve uma falha temporária ao registrar a avaliação automática (${evalData?.message || evalRes.status}).`
-    );
-    process.exit(0);
+    const evalRes = await fetch(`${API_BASE}/api/projetos2026/avaliar`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        chave,
+        prNumber: PR_NUMBER,
+        prUrl: PR_HTML_URL,
+        githubRepoUrl: PR_HEAD_REPO_URL,
+        cloudflareUrl,
+        checks,
+        dossier,
+        externalAiEvaluation,
+      }),
+    });
+
+    const evalData = await evalRes.json().catch(() => null);
+    if (!evalRes.ok || !evalData?.ok) {
+      await comentarNoPr(
+        `⚠️ **Aviso na Etapa 2:** O Pull Request foi aceito, mas houve uma falha temporária ao registrar a avaliação automática (${evalData?.message || evalRes.status}).`
+      );
+      process.exit(0);
+    }
+
+    await comentarNoPr(evalData.markdownReport);
+    const labels = [`turma:${student.turma}`, "projeto-teste-sem-nota"];
+    await adicionarLabelsNoPr(labels);
+  } else {
+    const checklistMarkdown = [
+      `## 📋 Diagnóstico Preliminar de Entrega — Projeto #${project.id} (\`${chave}\`)`,
+      ``,
+      `Olá, **${student.nomeCompleto}**! Seu Pull Request foi registrado e inspecionado com sucesso.`,
+      ``,
+      `### Status dos Pré-Requisitos Técnicos`,
+      `| Item Verificado | Status | Diagnóstico |`,
+      `| :--- | :---: | :--- |`,
+      `| **1. Deploy Online no Cloudflare** | ${checks.cloudflareOnline ? "✅ OK" : "⚠️ PENDENTE"} | ${checks.cloudflareOnline ? `Online em ${cloudflareUrl}` : "Não foi possível conectar à URL da Cloudflare informada no README"} |`,
+      `| **2. Serverless (Functions + D1 + Discord OAuth2)** | ${checks.hasCloudflareFunctions && checks.hasD1BindingOrSql ? "✅ OK" : "⚠️ PENDENTE"} | Functions: ${checks.hasCloudflareFunctions ? "Sim" : "Não"} · D1: ${checks.hasD1BindingOrSql ? "Sim" : "Não"} · Discord OAuth2: ${checks.hasDiscordOAuth ? "Sim" : "Não"} |`,
+      `| **3. Frontend HTML5/CSS3/JS Vanilla** | ${checks.hasVanillaFrontend && !checks.hasProhibitedFrameworks ? "✅ OK" : "⚠️ ATENÇÃO"} | ${checks.hasProhibitedFrameworks ? "Frameworks proibidos detectados" : "HTML/CSS/JS puro"} |`,
+      `| **4. Engenharia de Agentes (Mín. 3 Agentes + Teste + Skills)** | ${checks.hasAgentsDoc && checks.hasTestingAgent && checks.skillsCount >= 3 ? "✅ OK" : "⚠️ PENDENTE"} | Agentes: ${checks.agentsCountDetected} · Agente de Teste: ${checks.hasTestingAgent ? "Sim" : "Não"} · Skills: ${checks.skillsCount} |`,
+      `| **5. Licença MIT + Chave no README e Rodapé** | ${checks.hasMitLicense && checks.hasReadmeWithHash && checks.localHtmlHasHash ? "✅ OK" : "⚠️ PENDENTE"} | MIT: ${checks.hasMitLicense ? "Sim" : "Não"} · README: ${checks.hasReadmeWithHash ? "Sim" : "Não"} · Rodapé: ${checks.localHtmlHasHash ? "Sim" : "Não"} |`,
+      ``,
+      `💡 **Observação:** Seu Pull Request permanece **ABERTO**. Você pode continuar realizando commits e melhorias no seu repositório à vontade (o Pull Request atualizará sozinho a cada \`git push\`). A avaliação por Inteligência Artificial com atribuição de nota final (0 a 100) e o merge oficial serão executados pelo professor na data de encerramento das entregas.`,
+    ].join("\n");
+
+    await comentarNoPr(checklistMarkdown);
+    await adicionarLabelsNoPr([`turma:${student.turma}`, "status:aguardando-avaliacao"]);
   }
-
-  await comentarNoPr(evalData.markdownReport);
-
-  const labels = [`turma:${student.turma}`, isTest ? "projeto-teste-sem-nota" : `nota:${evalData.scoreTotal}`];
-  await adicionarLabelsNoPr(labels);
 }
 
 main();
