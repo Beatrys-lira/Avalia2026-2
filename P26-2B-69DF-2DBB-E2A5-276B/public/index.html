@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#192b3b" />
+    <meta name="theme-color" content="#bf286b" />
     <title>Turma em Jogo · Sorteador Auditável</title>
     <link rel="stylesheet" href="./styles.css" />
     <script src="./app.js" defer></script>
@@ -22,7 +22,7 @@
       <nav aria-label="Navegação principal">
         <a href="#consultar">Consultar ata</a>
         <div id="profile">
-          <a class="button button-dark login" href="/api/auth/discord"
+          <a class="button button-rose login" href="/api/auth/discord"
             >Entrar com Discord <span aria-hidden="true">↗</span></a
           >
         </div>
@@ -34,7 +34,9 @@
           <p class="eyebrow">
             <span class="dot"></span> PROJETO #43 · TURMA 2B
           </p>
-          <h1 id="titulo">A turma participa.<br />O acaso decide.</h1>
+          <h1 id="titulo">
+            Sua turma.<br />Suas equipes.<br /><em>Um novo sorteio.</em>
+          </h1>
           <p class="hero-description">
             Forme equipes ou defina a ordem de apresentação. Um sorteio, uma ata
             pública e o mesmo resultado para todo mundo.
@@ -43,13 +45,30 @@
             >Vamos organizar um sorteio <span aria-hidden="true">↘</span></a
           >
         </div>
-        <aside class="hero-note">
-          <span class="note-number">01 / 02 / 03</span>
-          <h2>Convide.<br />Sorteie.<br />Compartilhe.</h2>
+        <aside class="hero-note" aria-label="Exemplo ilustrativo de equipes">
+          <div class="note-heading">
+            <span class="note-number">EXEMPLO DE RESULTADO</span>
+            <span class="note-seal" aria-hidden="true">✓</span>
+          </div>
+          <h2>Todo mundo tem seu lugar.</h2>
+          <div class="preview-teams" aria-hidden="true">
+            <div class="preview-team">
+              <strong>Equipe 01</strong>
+              <div class="preview-people">
+                <span>AS</span><span>BC</span><span>LM</span>
+              </div>
+            </div>
+            <div class="preview-team">
+              <strong>Equipe 02</strong>
+              <div class="preview-people">
+                <span>JP</span><span>MC</span><span>RF</span>
+              </div>
+            </div>
+          </div>
           <p>
-            O resultado fica registrado com data, hora e código de verificação.
+            Prévia ilustrativa. O resultado real aparece na ata depois do
+            sorteio.
           </p>
-          <span class="note-seal" aria-hidden="true">✓</span>
         </aside>
       </section>
       <div id="message" class="message" role="status" hidden></div>
@@ -109,25 +128,25 @@
             <p id="roomHelp" class="muted"></p>
             <button
               id="joinRoom"
-              class="button button-dark"
+              class="button button-rose"
               type="button"
               hidden
             >
               Participar com meu Discord</button
             ><a
               id="loginRoom"
-              class="button button-dark login"
+              class="button button-rose login"
               href="/api/auth/discord"
               hidden
               >Entrar com Discord para participar</a
             ><button
               id="drawRoom"
-              class="button button-coral"
+              class="button button-primary"
               type="button"
               hidden
             >
               Realizar sorteio <span aria-hidden="true">↗</span></button
-            ><a id="openReceipt" class="button button-dark" hidden
+            ><a id="openReceipt" class="button button-rose" hidden
               >Ver ata pública</a
             >
           </div>
@@ -167,7 +186,7 @@
           <p id="verification" role="status"></p>
         </div>
         <div class="button-row no-print">
-          <button id="copyReceipt" class="button button-dark" type="button">
+          <button id="copyReceipt" class="button button-rose" type="button">
             Copiar link da ata</button
           ><button
             id="printReceipt"
@@ -235,7 +254,7 @@
             </p>
             <button
               id="createButton"
-              class="button button-coral full"
+              class="button button-primary full"
               type="submit"
             >
               Criar sala <span aria-hidden="true">↗</span>
@@ -264,7 +283,7 @@
                 autocomplete="off"
                 required
                 placeholder="Cole o código aqui"
-              /><button class="button button-dark full" type="submit">
+              /><button class="button button-rose full" type="submit">
                 Consultar resultado <span aria-hidden="true">→</span>
               </button>
             </form>
