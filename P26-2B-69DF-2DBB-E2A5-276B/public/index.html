@@ -4,72 +4,30 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#bf286b" />
-    <title>Turma em Jogo · Sorteador Auditável</title>
+    <title>Sorteador de equipes · Projeto #43</title>
     <link rel="stylesheet" href="./styles.css" />
     <script src="./app.js" defer></script>
   </head>
   <body>
     <a class="skip" href="#conteudo">Ir para o conteúdo</a>
     <header class="topbar">
-      <a class="brand" href="/" aria-label="Turma em Jogo, início"
-        ><span class="brand-icon" aria-hidden="true">↗</span
-        ><span
-          >turma<span class="brand-light">em</span>jogo<small
-            >SORTEIOS QUE FICAM REGISTRADOS</small
-          ></span
-        ></a
-      >
+      <a class="brand" href="/">Sorteador de equipes</a>
       <nav aria-label="Navegação principal">
         <a href="#consultar">Consultar ata</a>
         <div id="profile">
           <a class="button button-rose login" href="/api/auth/discord"
-            >Entrar com Discord <span aria-hidden="true">↗</span></a
+            >Entrar com Discord</a
           >
         </div>
       </nav>
     </header>
     <main id="conteudo">
       <section class="hero" aria-labelledby="titulo">
-        <div>
-          <p class="eyebrow">
-            <span class="dot"></span> PROJETO #43 · TURMA 2B
-          </p>
-          <h1 id="titulo">
-            Sua turma.<br />Suas equipes.<br /><em>Um novo sorteio.</em>
-          </h1>
-          <p class="hero-description">
-            Forme equipes ou defina a ordem de apresentação. Um sorteio, uma ata
-            pública e o mesmo resultado para todo mundo.
-          </p>
-          <a class="text-link" href="#criar"
-            >Vamos organizar um sorteio <span aria-hidden="true">↘</span></a
-          >
-        </div>
-        <aside class="hero-note" aria-label="Exemplo ilustrativo de equipes">
-          <div class="note-heading">
-            <span class="note-number">EXEMPLO DE RESULTADO</span>
-            <span class="note-seal" aria-hidden="true">✓</span>
-          </div>
-          <h2>Todo mundo tem seu lugar.</h2>
-          <div class="preview-teams" aria-hidden="true">
-            <div class="preview-team">
-              <strong>Equipe 01</strong>
-              <div class="preview-people">
-                <span>AS</span><span>BC</span><span>LM</span>
-              </div>
-            </div>
-            <div class="preview-team">
-              <strong>Equipe 02</strong>
-              <div class="preview-people">
-                <span>JP</span><span>MC</span><span>RF</span>
-              </div>
-            </div>
-          </div>
-          <p>
-            Prévia ilustrativa. O resultado real aparece na ata depois do
-            sorteio.
-          </p>
-        </aside>
+        <h1 id="titulo">Sorteio de equipes e apresentações</h1>
+        <p class="hero-description">
+          Adicione os participantes, escolha o tipo de sorteio e compartilhe a
+          ata com a turma.
+        </p>
       </section>
       <div id="message" class="message" role="status" hidden></div>
       <section
@@ -80,7 +38,6 @@
       >
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">SALA DE SORTEIO</p>
             <h2 id="roomTitle"></h2>
           </div>
           <span id="roomState" class="pill"></span>
@@ -145,7 +102,7 @@
               type="button"
               hidden
             >
-              Realizar sorteio <span aria-hidden="true">↗</span></button
+              Realizar sorteio</button
             ><a id="openReceipt" class="button button-rose" hidden
               >Ver ata pública</a
             >
@@ -160,7 +117,6 @@
       >
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">ATA PÚBLICA DO SORTEIO</p>
             <h2 id="receiptTitle"></h2>
           </div>
           <span class="pill">Resultado registrado</span>
@@ -201,10 +157,8 @@
         <section id="criar" class="panel" aria-labelledby="createTitle">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">UM NOVO COMEÇO</p>
-              <h2 id="createTitle">Organize sua sala</h2>
+              <h2 id="createTitle">Criar sala</h2>
             </div>
-            <span class="step">01</span>
           </div>
           <p class="muted">
             Defina as regras antes de convidar os participantes.
@@ -257,7 +211,7 @@
               class="button button-primary full"
               type="submit"
             >
-              Criar sala <span aria-hidden="true">↗</span>
+              Criar sala
             </button>
             <p id="loginHint" class="hint">
               Entre com Discord para criar e organizar uma sala.
@@ -270,8 +224,7 @@
             class="panel lookup"
             aria-labelledby="lookupTitle"
           >
-            <p class="eyebrow">JÁ TEM UM RESULTADO?</p>
-            <h2 id="lookupTitle">A ata é de todos.</h2>
+            <h2 id="lookupTitle">Consultar ata</h2>
             <p class="muted">
               Cole o código de verificação para consultar um sorteio. A consulta
               é pública.
@@ -284,49 +237,22 @@
                 required
                 placeholder="Cole o código aqui"
               /><button class="button button-rose full" type="submit">
-                Consultar resultado <span aria-hidden="true">→</span>
+                Consultar resultado
               </button>
             </form>
-          </section>
-          <section class="how">
-            <p class="eyebrow">COMO FUNCIONA</p>
-            <ol>
-              <li>
-                <span>01</span>
-                <div>
-                  <h3>Uma sala para a turma</h3>
-                  <p>Adicione os nomes ou convide pelo link.</p>
-                </div>
-              </li>
-              <li>
-                <span>02</span>
-                <div>
-                  <h3>Um sorteio registrado</h3>
-                  <p>O organizador encerra as entradas ao sortear.</p>
-                </div>
-              </li>
-              <li>
-                <span>03</span>
-                <div>
-                  <h3>Um resultado compartilhado</h3>
-                  <p>Consulte a ata com data, hora e verificação.</p>
-                </div>
-              </li>
-            </ol>
           </section>
         </aside>
       </div>
       <section id="myRoomsSection" class="panel" hidden>
         <div class="panel-heading">
           <h2>Suas salas</h2>
-          <span class="eyebrow">CONTINUE DE ONDE PAROU</span>
         </div>
         <ul id="myRooms" class="rooms-list"></ul>
       </section>
     </main>
     <footer>
       <div>
-        <strong>turmaemjogo</strong
+        <strong>Projeto #43</strong
         ><span
           >Desenvolvido por Beatrys Belo de Lira Esteves · UniBrasil · Turma
           2B</span
