@@ -1,50 +1,98 @@
-# Projeto #43: Sorteador Auditável de Equipes e Ordem de Apresentação
+# Projeto #43 — Sorteador Auditável
 
-- **Modalidade:** Projeto Oficial Sorteado (Valendo 100 pontos)
-- **Estudante:** Beatrys Belo de Lira Esteves
-- **Turma:** 2B
-- **Chave Única:** `P26-2B-69DF-2DBB-E2A5-276B`
-- **URL_CLOUDFLARE:** `https://p26-2b-69df-2dbb-e2a5-276b.pages.dev` *(Atualize com a URL pública real do seu deploy na Cloudflare antes de abrir o Pull Request)*
+Ferramenta para criar salas, formar equipes e definir a ordem de apresentação com ata pública.
 
----
+- Estudante — Beatrys Belo de Lira Esteves
+- RA — 2026108406
+- Turma — 2B
+- Chave Única — `P26-2B-69DF-2DBB-E2A5-276B`
+- URL_CLOUDFLARE — pendente de publicação. Preencha com a URL real antes da entrega.
 
-## Especificação do Projeto
+## Funcionamento
 
-Projete uma ferramenta utilitária para professores e representantes de turma realizarem sorteios de grupos de trabalho ou definirem a ordem de apresentação de seminários. O organizador faz login via Discord, insere a lista de participantes (ou permite que os próprios alunos entrem na sala clicando em um botão com seu login do Discord) e define os parâmetros (ex: tamanho máximo de cada grupo).
+O organizador entra pelo Discord e cria uma sala com título, modalidade e limite de pessoas por equipe. Pode cadastrar nomes manualmente e compartilhar o link para que alunos entrem com Discord. Cada conta entra uma vez na sala. O organizador pode remover participantes antes do sorteio.
 
-Para garantir transparência e impossibilitar acusações de favorecimento, o algoritmo de embaralhamento (Fisher-Yates) é executado dentro da Cloudflare Function. O resultado é gravado de forma imutável no Cloudflare D1 com um código de verificação e carimbo de data/hora, permitindo que qualquer aluno consulte a ata pública daquele sorteio posteriormente.
+O servidor executa Fisher–Yates com Web Crypto e rejeição de valores para evitar viés na escolha dos índices. Ao sortear, a sala é encerrada. Uma única ata é gravada com a lista usada, resultado, organizador, horário UTC, código público e SHA-256 do JSON exato do registro. Repetir a requisição devolve a ata já salva. As equipes são distribuídas de forma equilibrada respeitando o limite escolhido.
 
----
+Qualquer pessoa com o link pode consultar a ata e conferir seu hash. Nomes e IDs de Discord incluídos na ata ficam públicos para quem tiver esse link. O hash permite detectar alteração do conteúdo em relação ao hash registrado. A proteção de imutabilidade é aplicada por triggers SQLite e pelas rotas da aplicação. Um administrador que controle o banco e o código ainda pode alterar a infraestrutura. Este projeto não fornece prova externa da aleatoriedade ou do momento da publicação.
 
-## Como Publicar esta Subpasta no Cloudflare Pages + D1 + Discord OAuth2
+## Arquitetura
 
-1. No painel da Cloudflare (**Workers & Pages** → **Create** → **Pages** → **Connect to Git**), selecione o seu fork do repositório `Avalia2026-2`.
-2. Configure os parâmetros de build apontando para esta subpasta:
-   - **Root directory (Diretório raiz):** `P26-2B-69DF-2DBB-E2A5-276B`
-   - **Build command:** *(deixe em branco — HTML/CSS/JS puro)*
-   - **Build output directory:** `public`
-3. Crie o banco de dados D1 e aplique a migração inicial (no terminal do laboratório usando Scoop):
-   ```powershell
-   cd P26-2B-69DF-2DBB-E2A5-276B
-   npx.cmd wrangler d1 create db-p26-2b-69df-2dbb-e2a5-276b
-   # Copie o database_id gerado para o arquivo wrangler.jsonc e execute:
-   npx.cmd wrangler d1 migrations apply DB --remote
-   ```
-4. **Vincule o Banco D1 ao seu Cloudflare Pages (Obrigatório para ativar env.DB):**
-   - No painel da Cloudflare: acesse seu projeto Pages → **Settings** → **Functions** → **D1 database bindings**.
-   - Clique em **Add binding**:
-     - **Variable name:** `DB`
-     - **D1 database:** selecione o banco que você criou (`db-p26-2b-69df-2dbb-e2a5-276b`).
-5. **Configuração do Discord OAuth2 (Obrigatório para autenticação real):**
-   - Acesse o **Discord Developer Portal** (https://discord.com/developers/applications) e crie uma nova Application.
-   - Na aba **OAuth2**:
-     - Copie o **Client ID** e gere o **Client Secret**.
-     - Em **Redirects**, adicione a URL exata do deploy:
-       `https://p26-2b-69df-2dbb-e2a5-276b.pages.dev/api/auth/discord/callback`
-   - No painel do seu projeto no Cloudflare Pages:
-     - Acesse **Settings** → **Environment variables**.
-     - Adicione as variáveis de ambiente:
-       - `DISCORD_CLIENT_ID`
-       - `DISCORD_CLIENT_SECRET`
-6. Atualize o campo **URL_CLOUDFLARE** no topo deste `README.md` com o endereço público gerado pela Cloudflare.
-7. Na raiz do repositório, execute `node validar-local.mjs P26-2B-69DF-2DBB-E2A5-276B` para validar todos os critérios antes de fazer o commit e abrir o Pull Request.
+- `public/` — HTML5, CSS3 e JavaScript puro, com impressão da ata.
+- `functions/` — API Cloudflare Pages Functions e login Discord OAuth2.
+- `lib/` — utilitários do servidor e algoritmo de sorteio.
+- `migrations/0001_init.sql` — estrutura original preservada para instalações existentes.
+- `migrations/0002_sorteador.sql` — salas, participantes, sessões e atas.
+- `tests/` — testes independentes de regras, autenticação e integridade.
+- `AGENTS.md` e `skills/` — registro do trabalho dos agentes.
+
+## Preparar a Cloudflare
+
+Dentro desta pasta, abra um terminal. No PowerShell do laboratório use `npx.cmd` para evitar bloqueios de scripts `.ps1`.
+
+```powershell
+npx.cmd wrangler login
+npx.cmd wrangler d1 create db-p26-2b-69df-2dbb-e2a5-276b
+```
+
+Copie o `database_id` retornado para `wrangler.jsonc`, substituindo o UUID composto de zeros. Para um banco já existente, use o ID correto dele. Aplique todas as migrações sem apagar o banco.
+
+```powershell
+npx.cmd wrangler d1 migrations apply DB --remote
+```
+
+No Cloudflare Pages, conecte o fork `Beatrys-lira/Avalia2026-2` com estas opções.
+
+| Campo | Valor |
+| --- | --- |
+| Diretório raiz | `P26-2B-69DF-2DBB-E2A5-276B` |
+| Comando de build | vazio |
+| Diretório de saída | `public` |
+| Branch de produção | `main` |
+| Binding D1 | `DB`, apontando para o banco criado |
+
+Cadastre os secrets `DISCORD_CLIENT_ID` e `DISCORD_CLIENT_SECRET` nas configurações do projeto Pages. O Client Secret deve ser inserido somente no painel ou no arquivo local `.dev.vars`, que é ignorado pelo Git.
+
+No [Discord Developer Portal](https://discord.com/developers/applications), abra a aplicação e registre no OAuth2 o callback com o domínio real do site, seguido de `/api/auth/discord/callback`. O aplicativo solicita apenas o escopo `identify`.
+
+Depois de configurar, faça novo deploy. Teste login, criação de sala, entrada de outra conta, sorteio e consulta da ata sem login. Preencha `URL_CLOUDFLARE` acima com o domínio real. A URL ainda não foi publicada nem validada nesta versão.
+
+## Executar localmente
+
+```powershell
+npx.cmd wrangler d1 migrations apply DB --local
+npx.cmd wrangler pages dev public
+```
+
+Abra o endereço HTTP mostrado pelo Wrangler, normalmente `http://localhost:8788`. O login local requer também esse callback cadastrado no Discord e as duas credenciais em `.dev.vars`.
+
+```text
+DISCORD_CLIENT_ID=ID_DA_APLICACAO
+DISCORD_CLIENT_SECRET=SEGREDO_DA_APLICACAO
+```
+
+Use o mesmo hostname no navegador e no callback. As funções precisam do servidor Wrangler para funcionar.
+
+## Validar e entregar
+
+Consulte `VALIDACAO.md` para os resultados e limitações dos testes. Dentro desta pasta, com Node.js 24 LTS ou superior, execute a bateria funcional.
+
+```powershell
+node --test tests/api.test.mjs
+```
+
+Na raiz do repositório execute o validador oficial.
+
+```powershell
+node validar-local.mjs P26-2B-69DF-2DBB-E2A5-276B
+```
+
+O teste de disponibilidade online só pode passar após publicar e preencher a URL real. Envie apenas alterações desta subpasta no Pull Request para `frankalcantara/Avalia2026-2`, após a validação final. No AVA, informe a URL pública e o endereço do fork.
+
+## Referências técnicas
+
+- [Cloudflare Pages Functions](https://developers.cloudflare.com/pages/functions/)
+- [Banco D1 e operações em lote](https://developers.cloudflare.com/d1/worker-api/d1-database/)
+- [OAuth2 do Discord](https://docs.discord.com/developers/topics/oauth2)
+
+Licença MIT.

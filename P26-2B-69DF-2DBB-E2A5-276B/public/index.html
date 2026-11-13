@@ -1,78 +1,322 @@
 <!doctype html>
 <html lang="pt-BR">
-
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Projeto #43 — P26-2B-69DF-2DBB-E2A5-276B</title>
-  <link rel="stylesheet" href="./styles.css">
-</head>
-
-<body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div>
-        <strong>Projeto #43: Sorteador Auditável de Equipes e Ordem de Apresentação</strong>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#192b3b" />
+    <title>Turma em Jogo · Sorteador Auditável</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#conteudo">Ir para o conteúdo</a>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Turma em Jogo, início"
+        ><span class="brand-icon" aria-hidden="true">↗</span
+        ><span
+          >turma<span class="brand-light">em</span>jogo<small
+            >SORTEIOS QUE FICAM REGISTRADOS</small
+          ></span
+        ></a
+      >
+      <nav aria-label="Navegação principal">
+        <a href="#consultar">Consultar ata</a>
+        <div id="profile">
+          <a class="button button-dark login" href="/api/auth/discord"
+            >Entrar com Discord <span aria-hidden="true">↗</span></a
+          >
+        </div>
+      </nav>
+    </header>
+    <main id="conteudo">
+      <section class="hero" aria-labelledby="titulo">
+        <div>
+          <p class="eyebrow">
+            <span class="dot"></span> PROJETO #43 · TURMA 2B
+          </p>
+          <h1 id="titulo">A turma participa.<br />O acaso decide.</h1>
+          <p class="hero-description">
+            Forme equipes ou defina a ordem de apresentação. Um sorteio, uma ata
+            pública e o mesmo resultado para todo mundo.
+          </p>
+          <a class="text-link" href="#criar"
+            >Vamos organizar um sorteio <span aria-hidden="true">↘</span></a
+          >
+        </div>
+        <aside class="hero-note">
+          <span class="note-number">01 / 02 / 03</span>
+          <h2>Convide.<br />Sorteie.<br />Compartilhe.</h2>
+          <p>
+            O resultado fica registrado com data, hora e código de verificação.
+          </p>
+          <span class="note-seal" aria-hidden="true">✓</span>
+        </aside>
+      </section>
+      <div id="message" class="message" role="status" hidden></div>
+      <section
+        id="roomSection"
+        class="panel"
+        hidden
+        aria-labelledby="roomTitle"
+      >
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">SALA DE SORTEIO</p>
+            <h2 id="roomTitle"></h2>
+          </div>
+          <span id="roomState" class="pill"></span>
+        </div>
+        <p id="roomMeta" class="muted"></p>
+        <div class="share-row">
+          <label for="roomLink">Link para convidar a turma</label>
+          <div class="inline">
+            <input id="roomLink" readonly /><button
+              type="button"
+              id="copyRoom"
+              class="button button-outline"
+            >
+              Copiar link
+            </button>
+          </div>
+        </div>
+        <div class="room-columns">
+          <div>
+            <h3>
+              Quem está na sala
+              <span id="participantCount" class="count">0</span>
+            </h3>
+            <ul id="participantList" class="participants"></ul>
+            <form id="addParticipantForm" hidden>
+              <label for="newParticipant">Adicionar participante</label>
+              <div class="inline">
+                <input
+                  id="newParticipant"
+                  maxlength="100"
+                  required
+                  placeholder="Nome completo"
+                />
+                <button
+                  class="button button-outline"
+                  id="addParticipantButton"
+                  type="submit"
+                >
+                  Adicionar
+                </button>
+              </div>
+            </form>
+          </div>
+          <div class="room-actions">
+            <p id="roomHelp" class="muted"></p>
+            <button
+              id="joinRoom"
+              class="button button-dark"
+              type="button"
+              hidden
+            >
+              Participar com meu Discord</button
+            ><a
+              id="loginRoom"
+              class="button button-dark login"
+              href="/api/auth/discord"
+              hidden
+              >Entrar com Discord para participar</a
+            ><button
+              id="drawRoom"
+              class="button button-coral"
+              type="button"
+              hidden
+            >
+              Realizar sorteio <span aria-hidden="true">↗</span></button
+            ><a id="openReceipt" class="button button-dark" hidden
+              >Ver ata pública</a
+            >
+          </div>
+        </div>
+      </section>
+      <section
+        id="receiptSection"
+        class="panel receipt"
+        hidden
+        aria-labelledby="receiptTitle"
+      >
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">ATA PÚBLICA DO SORTEIO</p>
+            <h2 id="receiptTitle"></h2>
+          </div>
+          <span class="pill">Resultado registrado</span>
+        </div>
+        <p id="receiptMeta" class="muted"></p>
+        <div id="drawResults" class="results"></div>
+        <div class="audit-box">
+          <h3>Registro de verificação</h3>
+          <dl>
+            <div>
+              <dt>Código da ata</dt>
+              <dd id="receiptCode"></dd>
+            </div>
+            <div>
+              <dt>Algoritmo</dt>
+              <dd>Fisher–Yates · executado no servidor</dd>
+            </div>
+            <div>
+              <dt>Resumo SHA-256</dt>
+              <dd id="receiptHash" class="hash"></dd>
+            </div>
+          </dl>
+          <p id="verification" role="status"></p>
+        </div>
+        <div class="button-row no-print">
+          <button id="copyReceipt" class="button button-dark" type="button">
+            Copiar link da ata</button
+          ><button
+            id="printReceipt"
+            class="button button-outline"
+            type="button"
+          >
+            Imprimir / salvar PDF
+          </button>
+        </div>
+      </section>
+      <div class="workspace">
+        <section id="criar" class="panel" aria-labelledby="createTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">UM NOVO COMEÇO</p>
+              <h2 id="createTitle">Organize sua sala</h2>
+            </div>
+            <span class="step">01</span>
+          </div>
+          <p class="muted">
+            Defina as regras antes de convidar os participantes.
+          </p>
+          <form id="createForm">
+            <label for="title">Nome do sorteio</label
+            ><input
+              id="title"
+              name="title"
+              maxlength="120"
+              required
+              placeholder="Ex. Seminário de Engenharia de Software"
+            />
+            <div class="field-grid">
+              <div>
+                <label for="mode">O que vamos sortear?</label
+                ><select id="mode" name="mode">
+                  <option value="equipes">Equipes de trabalho</option>
+                  <option value="ordem">Ordem de apresentação</option>
+                </select>
+              </div>
+              <div id="groupSizeField">
+                <label for="groupSize">Máximo por equipe</label
+                ><input
+                  id="groupSize"
+                  name="groupSize"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value="4"
+                  required
+                />
+              </div>
+            </div>
+            <label for="names"
+              >Participantes <span class="optional">opcional</span></label
+            ><textarea
+              id="names"
+              name="names"
+              rows="5"
+              placeholder="Ana Silva&#10;Bruno Santos&#10;Carolina Souza"
+              aria-describedby="namesHelp"
+            ></textarea>
+            <p id="namesHelp" class="hint">
+              Um nome por linha. Você também pode compartilhar a sala para cada
+              pessoa entrar com Discord. Até 500 participantes.
+            </p>
+            <button
+              id="createButton"
+              class="button button-coral full"
+              type="submit"
+            >
+              Criar sala <span aria-hidden="true">↗</span>
+            </button>
+            <p id="loginHint" class="hint">
+              Entre com Discord para criar e organizar uma sala.
+            </p>
+          </form>
+        </section>
+        <aside class="sidebar">
+          <section
+            id="consultar"
+            class="panel lookup"
+            aria-labelledby="lookupTitle"
+          >
+            <p class="eyebrow">JÁ TEM UM RESULTADO?</p>
+            <h2 id="lookupTitle">A ata é de todos.</h2>
+            <p class="muted">
+              Cole o código de verificação para consultar um sorteio. A consulta
+              é pública.
+            </p>
+            <form id="lookupForm">
+              <label for="lookupCode">Código da ata</label
+              ><input
+                id="lookupCode"
+                autocomplete="off"
+                required
+                placeholder="Cole o código aqui"
+              /><button class="button button-dark full" type="submit">
+                Consultar resultado <span aria-hidden="true">→</span>
+              </button>
+            </form>
+          </section>
+          <section class="how">
+            <p class="eyebrow">COMO FUNCIONA</p>
+            <ol>
+              <li>
+                <span>01</span>
+                <div>
+                  <h3>Uma sala para a turma</h3>
+                  <p>Adicione os nomes ou convide pelo link.</p>
+                </div>
+              </li>
+              <li>
+                <span>02</span>
+                <div>
+                  <h3>Um sorteio registrado</h3>
+                  <p>O organizador encerra as entradas ao sortear.</p>
+                </div>
+              </li>
+              <li>
+                <span>03</span>
+                <div>
+                  <h3>Um resultado compartilhado</h3>
+                  <p>Consulte a ata com data, hora e verificação.</p>
+                </div>
+              </li>
+            </ol>
+          </section>
+        </aside>
       </div>
-      <div class="discord-badge" id="discordProfile">
-        <a id="discordLoginLink" href="/api/auth/discord" style="color:inherit;text-decoration:none;">
-          <span id="discordUserText">Entrar com Discord OAuth2</span>
-        </a>
-      </div>
-    </div>
-  </header>
-
-  <main>
-    <section class="card">
-      <span class="pill">Projeto Oficial #43</span>
-      <h1>Sorteador Auditável de Equipes e Ordem de Apresentação</h1>
-      <p class="desc">Crie uma sala, convide sua turma e sorteie equipes ou a ordem de apresentação. Depois, compartilhe
-        o resultado pela ata pública.</p>
-
-      <h2>Participantes</h2>
-      <label for="participantes">Digite um nome por linha</label>
-      <textarea class="input-text" id="participantes" name="participantes" rows="5"></textarea>
-
+      <section id="myRoomsSection" class="panel" hidden>
+        <div class="panel-heading">
+          <h2>Suas salas</h2>
+          <span class="eyebrow">CONTINUE DE ONDE PAROU</span>
+        </div>
+        <ul id="myRooms" class="rooms-list"></ul>
+      </section>
+    </main>
+    <footer>
       <div>
-        <input class="input-text" id="recordInput" type="text"
-          placeholder="Digite um registro para gravar na Cloudflare Function + D1...">
-        <button class="btn-primary" id="sendBtn" type="button">Registrar no Cloudflare D1</button>
+        <strong>turmaemjogo</strong
+        ><span
+          >Desenvolvido por Beatrys Belo de Lira Esteves · UniBrasil · Turma
+          2B</span
+        >
       </div>
-      <div id="statusMessage"></div>
-
-      <div>
-        <div id="configEquipe">
-  <label for="maxPorEquipe">Máximo de pessoas por equipe</label>
-  <input class="input-text" id="maxPorEquipe" name="maxPorEquipe"
-    type="number" min="1" step="1" value="4">
-</div>
-  <label for="tipoSorteio">Tipo de sorteio</label>
-  <select id="tipoSorteio" name="tipoSorteio">
-    <option value="equipes">Formar equipes</option>
-    <option value="ordem">Definir a ordem de apresentação</option>
-  </select>
-</div>
-<button class="btn-primary" id="sortearBtn" type="button">
-  Sortear
-</button>
-
-<div id="resultadoSorteio" aria-live="polite"></div>
-    </section>
-
-    <section class="card">
-      <h2 style="font-size:1.15rem;font-weight:800;margin-bottom:0.85rem;">Registros Persistidos (Cloudflare Pages
-        Functions + D1)</h2>
-      <ul class="records-list" id="recordsList">
-        <li>Carregando status da API serverless...</li>
-      </ul>
-    </section>
-  </main>
-
-  <footer id="projectFooter">
-    Chave Única de Auditoria: <code>P26-2B-69DF-2DBB-E2A5-276B</code> · Turma 2B · Licenciado sob MIT
-  </footer>
-
-  <script src="./app.js"></script>
-</body>
-
+      <p>
+        Chave Única de Auditoria <code>P26-2B-69DF-2DBB-E2A5-276B</code> ·
+        Licença MIT
+      </p>
+    </footer>
+  </body>
 </html>

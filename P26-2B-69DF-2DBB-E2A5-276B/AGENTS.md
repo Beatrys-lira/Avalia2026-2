@@ -1,34 +1,21 @@
-# Documentação de Engenharia de Agentes e Harness (P26-2B-69DF-2DBB-E2A5-276B)
+# Engenharia de agentes — Projeto #43
 
-> **Requisito da Rubrica (25 pontos):** Uso obrigatório de no mínimo **3 agentes diferentes** (sendo obrigatoriamente **1 agente dedicado a teste e validação**), documentando em qual *harness* operaram e relacionando as *skills* na pasta `skills/`.
+Chave `P26-2B-69DF-2DBB-E2A5-276B`. Desenvolvimento realizado no harness Codex, dentro do ChatGPT Work, com três agentes especializados e coordenação do agente principal. Os agentes usaram o modelo disponibilizado pela sessão Codex, com o mesmo contexto da tarefa e acesso ao checkout compartilhado.
 
-## 1. Ambiente de Orquestração (Harness Utilizado)
+## Agente 1 — Backend, autenticação e banco
 
-- **Harness Principal:** *(Descreva aqui qual harness foi utilizado, ex: Antigravity / Claude Code / Cursor / Cline / GitHub Copilot Workspace / OpenHands)*
-- **Modelo(s) Base:** *(Informe os modelos utilizados pelos agentes)*
-- **Estratégia de Coordenação:** Os agentes operaram de forma modular sobre a subpasta `P26-2B-69DF-2DBB-E2A5-276B/`, compartilhando especificações de banco de dados D1, contratos JSON das Cloudflare Pages Functions e verificação automatizada via `validar-local.mjs`.
+Identificador de execução `backend`. Responsável por `functions/`, `lib/` e `migrations/`. Aplicou `skills/serverless-d1-discord/SKILL.md`. Implementou OAuth2 com validação de state, sessões opacas verificadas no D1 por hash do token, permissões do organizador, salas, participantes e sorteio no servidor. O cookie HttpOnly contém um token aleatório e a identidade é obtida do banco.
 
----
+## Agente 2 — Interface HTML, CSS e JavaScript
 
-## 2. Agentes Criados e Responsabilidades (Mínimo de 3 Agentes)
+Identificador de execução `frontend`. Responsável por `public/`. Aplicou `skills/vanilla-dom-ui/SKILL.md`. Implementou interface responsiva em português, integração por fetch, estados de carregamento e erro, sala compartilhável e consulta de atas. A renderização dos nomes usa texto no DOM.
 
-### Agente 1: Arquiteto Serverless, Cloudflare D1 e Segurança Discord OAuth2
-- **Papel:** Modelagem do esquema relacional SQLite no Cloudflare D1 (`migrations/0001_init.sql`), implementação do fluxo de autenticação Discord OAuth2 e validação das regras de negócio no servidor (`functions/`).
-- **Skill Utilizada:** [`skills/serverless-d1-discord/SKILL.md`](./skills/serverless-d1-discord/SKILL.md)
-- **Entregas Realizadas:**
-  - Estruturação das tabelas e índices no Cloudflare D1.
-  - Proteção das rotas serverless contra manipulação no cliente.
+## Agente 3 — Teste e validação independente
 
-### Agente 2: Especialista em Interface Web Vanilla (HTML5, CSS3 e DOM)
-- **Papel:** Construção da interface responsiva e acessível utilizando exclusivamente HTML5 semântico, CSS3 moderno (sem sombras em fontes) e JavaScript puro (Vanilla JS), consumindo as rotas serverless via `fetch`.
-- **Skill Utilizada:** [`skills/vanilla-dom-ui/SKILL.md`](./skills/vanilla-dom-ui/SKILL.md)
-- **Entregas Realizadas:**
-  - Componentes visuais em `public/index.html`, `public/styles.css` e `public/app.js`.
-  - Inclusão do cabeçalho de perfil do Discord (`user_id`, nome e avatar) e rodapé oficial com a Chave Única `P26-2B-69DF-2DBB-E2A5-276B`.
+Identificador de execução `validation`. Responsável por testes e relatório de verificação. Aplicou `skills/teste-validacao/SKILL.md`. Testou os handlers com SQLite real usando uma adaptação da API D1 e verificou regras, rejeição de requisições inválidas, imutabilidade e conformidade estrutural. Comunicou falhas aos agentes responsáveis para correção. Resultados e pendências em `VALIDACAO.md`.
 
-### Agente 3: Agente de Teste, Auditoria de Segurança e Validação (Obrigatório)
-- **Papel:** Verificação independente de ponta a ponta: inspeção de contratos de API, tentativa de contorno das validações do servidor, auditoria da rubrica de 100 pontos e execução de testes funcionais.
-- **Skill Utilizada:** [`skills/teste-validacao/SKILL.md`](./skills/teste-validacao/SKILL.md)
-- **Entregas Realizadas:**
-  - Bateria de verificação de integridade dos endpoints e conformidade com a rubrica (`validar-local.mjs` e casos de teste documentados abaixo).
-  - Relatório de validação confirmando ausência de frameworks proibidos, presença da licença MIT e funcionamento no Cloudflare.
+## Coordenação e limites
+
+O agente principal recuperou o fork existente, definiu escopo e verificou a integração, documentação e alterações finais. Backend e interface combinaram contratos de API antes da implementação. O agente de testes revisou os contratos e casos de segurança separadamente. Somente arquivos desta subpasta compõem a alteração.
+
+Os testes locais não substituem a validação do login com uma conta real do Discord e do banco remoto após o deploy. A publicação e os secrets dependem da configuração da conta Cloudflare da estudante. Nenhum deploy de produção é declarado como concluído.
