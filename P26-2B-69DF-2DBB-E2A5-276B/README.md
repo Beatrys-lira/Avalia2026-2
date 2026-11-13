@@ -1,98 +1,98 @@
-# Projeto #43 — Sorteador Auditável
+# Sorteador de equipes e apresentações
 
-Ferramenta para criar salas, formar equipes e definir a ordem de apresentação com ata pública.
+Trabalho do Projeto #43 da UniBrasil. O site permite montar equipes e definir a ordem de apresentação de uma turma. O organizador entra com Discord, adiciona os participantes e faz o sorteio.
 
-- Estudante — Beatrys Belo de Lira Esteves
+- Nome — Beatrys Belo de Lira Esteves
 - RA — 2026108406
 - Turma — 2B
-- Chave Única — `P26-2B-69DF-2DBB-E2A5-276B`
-- URL_CLOUDFLARE — https://avalia2026-2-52p.pages.dev/
+- Chave do projeto — `P26-2B-69DF-2DBB-E2A5-276B`
+- **URL_CLOUDFLARE** — https://avalia2026-2-52p.pages.dev/
 
-## Funcionamento
+## Como usar
 
-O organizador entra pelo Discord e cria uma sala com título, modalidade e limite de pessoas por equipe. Pode cadastrar nomes manualmente e compartilhar o link para que alunos entrem com Discord. Cada conta entra uma vez na sala. O organizador pode remover participantes antes do sorteio.
+1. Entre com sua conta do Discord.
+2. Crie uma sala e escolha entre equipes ou ordem de apresentação.
+3. Digite um nome por linha ou envie o link da sala para os alunos entrarem com Discord.
+4. Para equipes, informe o máximo de pessoas por grupo.
+5. Confira a lista e clique em Realizar sorteio.
 
-O servidor executa Fisher–Yates com Web Crypto e rejeição de valores para evitar viés na escolha dos índices. Ao sortear, a sala é encerrada. Uma única ata é gravada com a lista usada, resultado, organizador, horário UTC, código público e SHA-256 do JSON exato do registro. Repetir a requisição devolve a ata já salva. As equipes são distribuídas de forma equilibrada respeitando o limite escolhido.
+Depois do sorteio, a lista fica fechada. O resultado gera uma ata que pode ser consultada sem login pelo link ou pelo código. Também há uma opção para imprimir ou salvar em PDF.
 
-Qualquer pessoa com o link pode consultar a ata e conferir seu hash. Nomes e IDs de Discord incluídos na ata ficam públicos para quem tiver esse link. O hash permite detectar alteração do conteúdo em relação ao hash registrado. A proteção de imutabilidade é aplicada por triggers SQLite e pelas rotas da aplicação. Um administrador que controle o banco e o código ainda pode alterar a infraestrutura. Este projeto não fornece prova externa da aleatoriedade ou do momento da publicação.
+## Como o sorteio funciona
 
-## Arquitetura
+O embaralhamento usa Fisher–Yates e acontece na Cloudflare Function. No modo de equipes, os participantes são distribuídos de forma equilibrada, respeitando o limite escolhido.
 
-- `public/` — HTML5, CSS3 e JavaScript puro, com impressão da ata.
-- `functions/` — API Cloudflare Pages Functions e login Discord OAuth2.
-- `lib/` — utilitários do servidor e algoritmo de sorteio.
-- `migrations/0001_init.sql` — estrutura original preservada para instalações existentes.
-- `migrations/0002_sorteador.sql` — salas, participantes, sessões e atas.
-- `tests/` — testes independentes de regras, autenticação e integridade.
-- `AGENTS.md` e `skills/` — registro do trabalho dos agentes.
+A ata fica salva no D1 com data, hora, participantes, resultado, código e hash SHA-256. O navegador calcula o hash novamente para conferir o conteúdo recebido. As rotas e os gatilhos do banco bloqueiam alterações na ata. Um novo clique no sorteio da mesma sala retorna o resultado já salvo.
 
-## Preparar a Cloudflare
+Os nomes e IDs do Discord registrados na ata podem ser consultados por quem tiver o link.
 
-Dentro desta pasta, abra um terminal. No PowerShell do laboratório use `npx.cmd` para evitar bloqueios de scripts `.ps1`.
+## Tecnologias e arquivos
 
-```powershell
-npx.cmd wrangler login
-npx.cmd wrangler d1 create db-p26-2b-69df-2dbb-e2a5-276b
-```
+Usei HTML, CSS e JavaScript puro no front-end, Discord OAuth2 para login e Cloudflare Pages Functions com D1 no servidor.
 
-Copie o `database_id` retornado para `wrangler.jsonc`, substituindo o UUID composto de zeros. Para um banco já existente, use o ID correto dele. Aplique todas as migrações sem apagar o banco.
-
-```powershell
-npx.cmd wrangler d1 migrations apply DB --remote
-```
-
-No Cloudflare Pages, conecte o fork `Beatrys-lira/Avalia2026-2` com estas opções.
-
-| Campo | Valor |
+| Pasta | Conteúdo |
 | --- | --- |
-| Diretório raiz | `P26-2B-69DF-2DBB-E2A5-276B` |
-| Comando de build | vazio |
-| Diretório de saída | `public` |
-| Branch de produção | `main` |
-| Binding D1 | `DB`, apontando para o banco criado |
+| `public/` | Página, estilos e JavaScript da interface |
+| `functions/` | Login e rotas da API |
+| `lib/` | Algoritmo do sorteio e cálculo do hash |
+| `migrations/` | Scripts SQL do banco |
+| `tests/` | Testes da API e do sorteio |
+| `skills/` | Instruções utilizadas pelos agentes |
 
-Cadastre os secrets `DISCORD_CLIENT_ID` e `DISCORD_CLIENT_SECRET` nas configurações do projeto Pages. O Client Secret deve ser inserido somente no painel ou no arquivo local `.dev.vars`, que é ignorado pelo Git.
+O trabalho dos três agentes está descrito em [AGENTS.md](./AGENTS.md). Os testes realizados estão em [VALIDACAO.md](./VALIDACAO.md).
 
-No [Discord Developer Portal](https://discord.com/developers/applications), abra a aplicação e registre no OAuth2 o callback com o domínio real do site, seguido de `/api/auth/discord/callback`. O aplicativo solicita apenas o escopo `identify`.
+## Rodar no computador
 
-Depois de configurar, faça novo deploy. Teste login, criação de sala, entrada de outra conta, sorteio e consulta da ata sem login. O projeto está publicado no endereço informado acima. A consulta pública e a correspondência do hash de uma ata foram verificadas no navegador.
-
-## Executar localmente
+Com Node.js 24 ou superior, abra o terminal dentro da pasta `P26-2B-69DF-2DBB-E2A5-276B` e execute:
 
 ```powershell
 npx.cmd wrangler d1 migrations apply DB --local
 npx.cmd wrangler pages dev public
 ```
 
-Abra o endereço HTTP mostrado pelo Wrangler, normalmente `http://localhost:8788`. O login local requer também esse callback cadastrado no Discord e as duas credenciais em `.dev.vars`.
+Abra o endereço mostrado no terminal. Para testar o login local, crie um arquivo `.dev.vars` nesta pasta com:
 
 ```text
 DISCORD_CLIENT_ID=ID_DA_APLICACAO
 DISCORD_CLIENT_SECRET=SEGREDO_DA_APLICACAO
 ```
 
-Use o mesmo hostname no navegador e no callback. As funções precisam do servidor Wrangler para funcionar.
+Cadastre também o endereço local seguido de `/api/auth/discord/callback` nos Redirects do Discord. O arquivo `.dev.vars` está no `.gitignore`.
 
-## Validar e entregar
+## Configuração da publicação
 
-Consulte `VALIDACAO.md` para os resultados e limitações dos testes. Dentro desta pasta, com Node.js 24 LTS ou superior, execute a bateria funcional.
+| Campo no Cloudflare Pages | Valor |
+| --- | --- |
+| Branch | `main` |
+| Root directory | `P26-2B-69DF-2DBB-E2A5-276B` |
+| Build command | vazio |
+| Build output directory | `public` |
+| Banco D1 | binding `DB` |
+
+As variáveis `DISCORD_CLIENT_ID` e `DISCORD_CLIENT_SECRET` ficam nos Secrets de produção da Cloudflare. O ID do banco está no `wrangler.jsonc`. Nesta instalação, o esquema foi aplicado pelo Console D1.
+
+O callback cadastrado no Discord é:
+
+```text
+https://avalia2026-2-52p.pages.dev/api/auth/discord/callback
+```
+
+## Testes
+
+Dentro da pasta do projeto:
 
 ```powershell
 node --test tests/api.test.mjs
 ```
 
-Na raiz do repositório execute o validador oficial.
+Os oito grupos de testes passaram. Também foram conferidos o login, um sorteio publicado e a consulta da ata sem login. A impressão/PDF ainda precisa de conferência manual.
+
+Para executar o validador do professor, abra o terminal na raiz do repositório:
 
 ```powershell
 node validar-local.mjs P26-2B-69DF-2DBB-E2A5-276B
 ```
 
-A URL real está preenchida para a checagem de disponibilidade online. Envie apenas alterações desta subpasta no Pull Request para `frankalcantara/Avalia2026-2`, após a validação final. No AVA, informe a URL pública e o endereço do fork.
+A entrega inclui o Pull Request para o repositório do professor e os links do site e do fork no AVA.
 
-## Referências técnicas
-
-- [Cloudflare Pages Functions](https://developers.cloudflare.com/pages/functions/)
-- [Banco D1 e operações em lote](https://developers.cloudflare.com/d1/worker-api/d1-database/)
-- [OAuth2 do Discord](https://docs.discord.com/developers/topics/oauth2)
-
-Licença MIT.
+Licença [MIT](./LICENSE).
