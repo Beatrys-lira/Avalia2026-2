@@ -33,16 +33,20 @@ Na raiz do repositório, execute.
 node validar-local.mjs P26-2B-69DF-2DBB-E2A5-276B
 ```
 
-Resultado registrado — 8 verificações estruturais aprovadas. O item de deploy online está pendente porque a URL real ainda não foi configurada no README. O verificador estrutural não substitui os testes funcionais ou o teste de login real.
+Resultado registrado — 8 verificações estruturais aprovadas. A checagem automática online deste relatório foi executada antes da publicação. A URL real foi posteriormente preenchida no README e a disponibilidade foi conferida no navegador, como descrito abaixo. O verificador estrutural não substitui os testes funcionais ou o teste de login real.
 
 As checagens `node --check public/app.js` e `node --check functions/api/[[path]].js` passaram. A revisão da interface confirmou uso de `textContent` para nomes, títulos e resultados recebidos da API.
 
-## Pendências antes da entrega
+## Verificação da publicação
 
-- Configurar o UUID real do D1 e aplicar migrações na Cloudflare.
-- Configurar as credenciais e o callback Discord.
-- Publicar e testar OAuth2 com contas reais, inclusive a entrada de um aluno e a consulta da ata sem login.
-- Atualizar a URL no README e repetir o verificador oficial.
+- Site publicado em https://avalia2026-2-52p.pages.dev/.
+- UUID real do D1 configurado no repositório. A estudante executou o esquema pelo Console D1 e confirmou as sete tabelas.
+- A estudante concluiu login Discord e publicou um sorteio com 11 participantes. O resultado foi exibido em captura de tela enviada nesta sessão.
+- A consulta da sala e da ata pública foi verificada diretamente no navegador sem login. A ata com código `37b7859a-3dd9-46e2-b937-94f14dfa17fa` apresentou equipes de 4, 4 e 3 participantes, com limite de 5.
+- O navegador exibiu confirmação de correspondência do SHA-256 `801a7e2a8072d319a1d42d0e246a61c1f059471f5f8373a628059442dc391678`.
+- O fluxo remoto de criação foi executado pela estudante. O agente verificou a consulta pública, sem acesso à sessão autenticada dela. Os dois modos também foram testados localmente.
+
+Permanecem disponíveis para conferência manual a impressão/PDF e a apresentação em diferentes telas.
 
 A bateria automatizada não afirma disponibilidade na Cloudflare nem aprovação pela instituição. O teste de concorrência usa SQLite local e a lógica SQL real, não carga distribuída de produção. O hash comprova correspondência entre o conteúdo recebido e o resumo registrado, sem fornecer testemunho externo do sorteio.
 

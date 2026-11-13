@@ -18,4 +18,4 @@ Identificador de execução `validation`. Responsável por testes e relatório d
 
 O agente principal recuperou o fork existente, definiu escopo e verificou a integração, documentação e alterações finais. Backend e interface combinaram contratos de API antes da implementação. O agente de testes revisou os contratos e casos de segurança separadamente. Somente arquivos desta subpasta compõem a alteração.
 
-Os testes locais não substituem a validação do login com uma conta real do Discord e do banco remoto após o deploy. A publicação e os secrets dependem da configuração da conta Cloudflare da estudante. Nenhum deploy de produção é declarado como concluído.
+Os testes locais não substituem a validação do login com uma conta real do Discord e do banco remoto após o deploy. A estudante configurou a conta Cloudflare, o banco e os secrets. O projeto foi publicado em https://avalia2026-2-52p.pages.dev/. A consulta pública de uma ata e seu hash foram conferidos pelo agente no navegador, após a estudante executar o login e o sorteio. Os detalhes estão em `VALIDACAO.md`.

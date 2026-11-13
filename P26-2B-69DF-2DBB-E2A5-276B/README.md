@@ -6,7 +6,7 @@ Ferramenta para criar salas, formar equipes e definir a ordem de apresentação 
 - RA — 2026108406
 - Turma — 2B
 - Chave Única — `P26-2B-69DF-2DBB-E2A5-276B`
-- URL_CLOUDFLARE — pendente de publicação. Preencha com a URL real antes da entrega.
+- URL_CLOUDFLARE — https://avalia2026-2-52p.pages.dev/
 
 ## Funcionamento
 
@@ -55,7 +55,7 @@ Cadastre os secrets `DISCORD_CLIENT_ID` e `DISCORD_CLIENT_SECRET` nas configura�
 
 No [Discord Developer Portal](https://discord.com/developers/applications), abra a aplicação e registre no OAuth2 o callback com o domínio real do site, seguido de `/api/auth/discord/callback`. O aplicativo solicita apenas o escopo `identify`.
 
-Depois de configurar, faça novo deploy. Teste login, criação de sala, entrada de outra conta, sorteio e consulta da ata sem login. Preencha `URL_CLOUDFLARE` acima com o domínio real. A URL ainda não foi publicada nem validada nesta versão.
+Depois de configurar, faça novo deploy. Teste login, criação de sala, entrada de outra conta, sorteio e consulta da ata sem login. O projeto está publicado no endereço informado acima. A consulta pública e a correspondência do hash de uma ata foram verificadas no navegador.
 
 ## Executar localmente
 
@@ -87,7 +87,7 @@ Na raiz do repositório execute o validador oficial.
 node validar-local.mjs P26-2B-69DF-2DBB-E2A5-276B
 ```
 
-O teste de disponibilidade online só pode passar após publicar e preencher a URL real. Envie apenas alterações desta subpasta no Pull Request para `frankalcantara/Avalia2026-2`, após a validação final. No AVA, informe a URL pública e o endereço do fork.
+A URL real está preenchida para a checagem de disponibilidade online. Envie apenas alterações desta subpasta no Pull Request para `frankalcantara/Avalia2026-2`, após a validação final. No AVA, informe a URL pública e o endereço do fork.
 
 ## Referências técnicas
 
